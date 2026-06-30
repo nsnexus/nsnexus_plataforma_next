@@ -1,11 +1,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '../../utils/supabase/client';
+import { auth } from '../../utils/firebase/client';
+import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -13,17 +13,30 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [oobCode, setOobCode] = useState('');
 
   useEffect(() => {
-    const checkSession = async () => {
+    const checkParams = async () => {
       setCheckingSession(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setError('Link de recuperação inválido ou expirado. Solicite um novo link na página de login.');
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const code = searchParams.get('oobCode');
+        
+        if (!code) {
+          setError('Link de recuperação inválido ou expirado. Solicite um novo link na página de login.');
+        } else {
+          setOobCode(code);
+          // Optional: Verify the code is valid before displaying the form
+          await verifyPasswordResetCode(auth, code);
+        }
+      } catch (err) {
+        console.error("Verification error:", err);
+        setError('O link de recuperação de senha expirou ou já foi utilizado.');
+      } finally {
+        setCheckingSession(false);
       }
-      setCheckingSession(false);
     };
-    checkSession();
+    checkParams();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -44,19 +57,16 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password
-      });
+      // Direct Firebase Password Confirmation
+      await confirmPasswordReset(auth, oobCode, password);
 
-      if (updateError) throw updateError;
-
-      setSuccess('Senha atualizada com sucesso! Redirecionando para o painel...');
+      setSuccess('Senha atualizada com sucesso! Redirecionando para o login...');
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push('/login');
       }, 2500);
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Erro ao atualizar senha. Tente novamente.');
+      setError(err.message || 'Erro ao atualizar senha. Verifique se o link ainda é válido.');
     } finally {
       setLoading(false);
     }
@@ -73,7 +83,7 @@ export default function ResetPasswordPage() {
 
         {checkingSession ? (
           <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-secondary)' }}>
-            Verificando sessão de recuperação...
+            Validando link de recuperação...
           </div>
         ) : (
           <>

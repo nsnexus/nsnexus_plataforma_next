@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '../../utils/supabase/client';
+import { db } from '../../utils/firebase/client';
+import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import AdminRoute from '../../components/AdminRoute';
 
@@ -53,33 +54,36 @@ function AdminContent() {
     syllabus: []
   });
 
-  const supabase = createClient();
-
-  // Fetch all profiles and purchases from Supabase
+  // Fetch all profiles and purchases from Firestore
   const loadData = async () => {
     setLoadingData(true);
     try {
       // 1. Fetch profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (profilesError) throw profilesError;
-      setDbUsers(profiles || []);
+      const profilesRef = collection(db, 'profiles');
+      const profilesSnap = await getDocs(profilesRef);
+      const profiles = [];
+      profilesSnap.forEach((doc) => {
+        profiles.push(doc.data());
+      });
+      profiles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      setDbUsers(profiles);
 
       // 2. Fetch purchases
-      const { data: purchases, error: purchasesError } = await supabase
-        .from('purchases')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (purchasesError) throw purchasesError;
-      setDbPurchases(purchases || []);
+      const purchasesRef = collection(db, 'purchases');
+      const purchasesSnap = await getDocs(purchasesRef);
+      const purchases = [];
+      purchasesSnap.forEach((doc) => {
+        purchases.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+      purchases.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      setDbPurchases(purchases);
 
     } catch (err) {
       console.error('[Admin] Erro ao carregar dados:', err);
-      alert('Erro ao buscar dados do banco de dados. Verifique suas regras de RLS.');
+      alert('Erro ao buscar dados do banco de dados do Firestore.');
     } finally {
       setLoadingData(false);
     }
@@ -160,20 +164,18 @@ function AdminContent() {
       const selectedCourse = courses.find(c => c.id === selectedCourseId);
       
       const transactionId = 'MAN-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-
-      const { error } = await supabase
-        .from('purchases')
-        .insert({
-          user_id: selectedUserId,
-          user_email: selectedUser?.email || '',
-          user_name: selectedUser?.name || 'Sem nome',
-          course_id: selectedCourseId,
-          price_paid: manualPrice || selectedCourse?.price || 0,
-          status: 'approved',
-          payment_id: transactionId
-        });
-
-      if (error) throw error;
+      
+      // Insert purchase row into Firestore database
+      await addDoc(collection(db, 'purchases'), {
+        user_id: selectedUserId,
+        user_email: selectedUser?.email || '',
+        user_name: selectedUser?.name || 'Sem nome',
+        course_id: selectedCourseId,
+        price_paid: Number(manualPrice) || selectedCourse?.price || 0,
+        status: 'approved',
+        payment_id: transactionId,
+        created_at: new Date().toISOString()
+      });
 
       alert("Compra registrada com sucesso no banco de dados!");
       setShowAddPurchaseModal(false);
@@ -195,12 +197,8 @@ function AdminContent() {
     if (!window.confirm(`Deseja alterar o status desta compra para ${nextStatus.toUpperCase()}?`)) return;
 
     try {
-      const { error } = await supabase
-        .from('purchases')
-        .update({ status: nextStatus })
-        .eq('id', purchaseId);
-
-      if (error) throw error;
+      const purchaseRef = doc(db, 'purchases', purchaseId);
+      await updateDoc(purchaseRef, { status: nextStatus });
       
       alert("Status da transação atualizado com sucesso!");
       loadData();
@@ -272,55 +270,51 @@ function AdminContent() {
     try {
       if (editingCourse) {
         // Update
-        const { error } = await supabase
-          .from('courses')
-          .update({
-            title: courseForm.title,
-            description: courseForm.description,
-            price: Number(courseForm.price) || 0,
-            original_price: Number(courseForm.original_price) || 0,
-            payment_link: courseForm.payment_link,
-            duration: courseForm.duration,
-            lessons_count: courseForm.lessons_count,
-            instructor: courseForm.instructor,
-            type: courseForm.type,
-            category: courseForm.category,
-            badge_class: courseForm.badge_class,
-            badge_label: courseForm.badge_label,
-            level: courseForm.level,
-            banner: courseForm.banner,
-            is_closed: courseForm.is_closed,
-            syllabus: courseForm.syllabus
-          })
-          .eq('id', editingCourse.id);
+        const courseRef = doc(db, 'courses', editingCourse.id);
+        await setDoc(courseRef, {
+          id: editingCourse.id,
+          title: courseForm.title,
+          description: courseForm.description,
+          price: Number(courseForm.price) || 0,
+          originalPrice: Number(courseForm.original_price) || 0,
+          paymentLink: courseForm.payment_link,
+          duration: courseForm.duration,
+          lessonsCount: courseForm.lessons_count,
+          instructor: courseForm.instructor,
+          type: courseForm.type,
+          category: courseForm.category,
+          badgeClass: courseForm.badge_class,
+          badgeLabel: courseForm.badge_label,
+          level: courseForm.level,
+          banner: courseForm.banner,
+          isClosed: courseForm.is_closed,
+          syllabus: courseForm.syllabus
+        }, { merge: true });
 
-        if (error) throw error;
         alert("Curso atualizado com sucesso!");
       } else {
         // Insert
-        const { error } = await supabase
-          .from('courses')
-          .insert({
-            id: courseForm.id.trim(),
-            title: courseForm.title,
-            description: courseForm.description,
-            price: Number(courseForm.price) || 0,
-            original_price: Number(courseForm.original_price) || 0,
-            payment_link: courseForm.payment_link,
-            duration: courseForm.duration,
-            lessons_count: courseForm.lessons_count,
-            instructor: courseForm.instructor,
-            type: courseForm.type,
-            category: courseForm.category,
-            badge_class: courseForm.badge_class,
-            badge_label: courseForm.badge_label,
-            level: courseForm.level,
-            banner: courseForm.banner,
-            is_closed: courseForm.is_closed,
-            syllabus: courseForm.syllabus
-          });
+        const courseRef = doc(db, 'courses', courseForm.id.trim());
+        await setDoc(courseRef, {
+          id: courseForm.id.trim(),
+          title: courseForm.title,
+          description: courseForm.description,
+          price: Number(courseForm.price) || 0,
+          originalPrice: Number(courseForm.original_price) || 0,
+          paymentLink: courseForm.payment_link,
+          duration: courseForm.duration,
+          lessonsCount: courseForm.lessons_count,
+          instructor: courseForm.instructor,
+          type: courseForm.type,
+          category: courseForm.category,
+          badgeClass: courseForm.badge_class,
+          badgeLabel: courseForm.badge_label,
+          level: courseForm.level,
+          banner: courseForm.banner,
+          isClosed: courseForm.is_closed,
+          syllabus: courseForm.syllabus
+        });
 
-        if (error) throw error;
         alert("Curso cadastrado com sucesso!");
       }
       setShowCourseModal(false);
@@ -336,12 +330,8 @@ function AdminContent() {
   const handleDeleteCourse = async (courseId) => {
     if (!window.confirm("Deseja realmente excluir este curso de forma permanente?")) return;
     try {
-      const { error } = await supabase
-        .from('courses')
-        .delete()
-        .eq('id', courseId);
+      await deleteDoc(doc(db, 'courses', courseId));
 
-      if (error) throw error;
       alert("Curso excluído com sucesso!");
       await reloadCourses();
     } catch (err) {

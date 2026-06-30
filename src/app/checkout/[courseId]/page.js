@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
-import { createClient } from '../../../utils/supabase/client';
+import { db } from '../../../utils/firebase/client';
+import { collection, addDoc } from 'firebase/firestore';
 
 export default function CheckoutPage() {
   const params = useParams();
@@ -12,10 +13,10 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { user, reloadUser, courses } = useAuth();
   
+  
   const [course, setCourse] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [processing, setProcessing] = useState(false);
-  const supabase = createClient();
 
   useEffect(() => {
     if (courseId && courses) {
@@ -57,20 +58,17 @@ export default function CheckoutPage() {
     try {
       const generatedPaymentId = 'MP-' + Math.floor(10000000 + Math.random() * 90000000);
       
-      // Insert purchase row into Supabase database (real integration)
-      const { error } = await supabase
-        .from('purchases')
-        .insert({
-          user_id: user.id,
-          user_email: user.email,
-          user_name: user.name,
-          course_id: course.id,
-          price_paid: course.price,
-          status: 'approved', // Simulates successful approved payment
-          payment_id: generatedPaymentId
-        });
-
-      if (error) throw error;
+      // Insert purchase row into Firestore database (real integration)
+      await addDoc(collection(db, 'purchases'), {
+        user_id: user.id,
+        user_email: user.email,
+        user_name: user.name,
+        course_id: course.id,
+        price_paid: course.price,
+        status: 'approved', // Simulates successful approved payment
+        payment_id: generatedPaymentId,
+        created_at: new Date().toISOString()
+      });
 
       // Reload user profile to fetch new enrolledCourses list
       await reloadUser();
