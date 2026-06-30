@@ -255,6 +255,15 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Reset Password function
+  const resetPassword = async (email) => {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/reset-password'
+    });
+    if (error) throw error;
+    return data;
+  };
+
   // Update progress helper
   const updateProgress = async (courseId, lessonId, isCompleted = true) => {
     if (!user) return;
@@ -302,6 +311,7 @@ export const AuthProvider = ({ children }) => {
       signInWithGoogle, 
       signUp, 
       signOut, 
+      resetPassword,
       updateProgress, 
       courses,
       loadingCourses,
