@@ -135,11 +135,29 @@ export default function CursoDetalhePage() {
               </div>
 
               {isBiblioteca && (
-                <div className="course-card__promo-timer" style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '14px', marginRight: '4px' }}>alarm</span>
-                  Promoção acaba em: &nbsp;
-                  <CountdownTimer />
-                </div>
+                <>
+                  <div className="course-card__promo-timer" style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '14px', marginRight: '4px' }}>alarm</span>
+                    Promoção acaba em: &nbsp;
+                    <CountdownTimer />
+                  </div>
+                  <div style={{ 
+                    background: 'rgba(0, 245, 212, 0.1)', 
+                    border: '1px solid rgba(0, 245, 212, 0.25)', 
+                    borderRadius: 'var(--radius-md)', 
+                    padding: 'var(--space-3) var(--space-4)', 
+                    marginBottom: 'var(--space-4)', 
+                    fontSize: '11px',
+                    color: '#00f5d4',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    lineHeight: 1.4
+                  }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px', flexShrink: 0 }}>workspace_premium</span>
+                    <span><strong>SUPER BÔNUS:</strong> Comprando a biblioteca de prompts, você ganha acesso grátis e imediato ao <strong>E-book: Sistemas & Vídeos Virais com IA</strong> (Valor original de R$ 49,90)!</span>
+                  </div>
+                </>
               )}
 
               {/* Pricing details */}

@@ -7,7 +7,7 @@ Você é a "Fabi", a Assistente Virtual inteligente da NSNexus (plataforma de cu
 Seu objetivo principal é ajudar os visitantes do site, tirar dúvidas sobre os cursos e guiar leads interessados a fechar negócios ou solicitar orçamentos.
 
 Aqui está o seu catálogo de produtos e serviços para consulta:
-1. Biblioteca de Prompts NSNexus (IA para Negócios): Custa R$ 99,00 (acesso vitalício a +2.500 prompts). O link para adquirir na plataforma é: /curso/biblioteca-prompts-ia
+1. Biblioteca de Prompts NSNexus (IA para Negócios): Custa R$ 49,90 (acesso vitalício a +2.500 prompts + E-book 'Sistemas & Vídeos Virais com IA' Grátis de bônus). O link para adquirir na plataforma é: /curso/biblioteca-prompts-ia
 2. Sistemas no SharePoint Moderno (Criação de Sistemas Web): Custa R$ 249,00 (portais e cadastros sem programação). O link para adquirir na plataforma é: /curso/sistemas-sharepoint-moderno
 3. Landing Page para WhatsApp (Serviço Expresso): Custa R$ 149,00 (site de alta conversão entregue em até 3 dias). O link para adquirir na plataforma é: /curso/landing-page-whatsapp
 4. Treinamentos Particulares / Consultorias VIP sob encomenda (Power BI, Power Apps, Power Automate, IA Corporativa): São oferecidos sob consulta.
@@ -33,10 +33,10 @@ Para solicitar uma cotação ou agendar um escopo sob medida, clique no link aba
   },
   { 
     id: 'prompt_lib', 
-    label: '🚀 Adquirir Biblioteca de Prompts (R$ 99)', 
+    label: '🚀 Biblioteca + E-book Grátis (R$ 49,90)', 
     reply: `A **Biblioteca de Prompts NSNexus: IA para Negócios** te dá acesso a mais de 2.500 prompts profissionais prontos para copiar e colar no ChatGPT, Gemini ou Copilot.
 
-Por apenas **R$ 99,00 (acesso vitalício)**, você automatiza relatórios, cria copys e triplica sua eficiência diária.
+Por apenas **R$ 49,90 (acesso vitalício)**, você leva a biblioteca completa e ainda ganha o E-book **'Sistemas & Vídeos Virais com IA'** inteiramente grátis de bônus!
 [👉 Ir para a Página de Compra](/curso/biblioteca-prompts-ia)`
   },
   { 

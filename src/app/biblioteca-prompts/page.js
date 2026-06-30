@@ -98,7 +98,7 @@ export default function BibliotecaPromptsPage() {
             <div>
               <h3 style={{ fontSize: 'var(--font-xl)', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>🔥 Desbloqueie +2.500 Prompts Premium</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', marginTop: '4px' }}>
-                Você está em modo de visualização. Adquira o acervo completo para negócios por apenas R$ 99,00.
+                Você está em modo de visualização. Adquira o acervo completo para negócios por apenas R$ 49,90 e leve o E-book Grátis!
               </p>
             </div>
             <Link href="/curso/biblioteca-prompts-ia" className="btn btn-primary">Adquirir Biblioteca</Link>
@@ -209,7 +209,7 @@ export default function BibliotecaPromptsPage() {
                 let lockedBadge = null;
 
                 if (!hasAccess) {
-                  previewText = "PROMPT PREMIUM TRUNCADO E BLOQUEADO. ADQUIRA A BIBLIOTECA COMPLETA POR R$ 99,00 PARA DESBLOQUEAR ESTE E TODOS OS OUTROS PROMPTS DE ALTA PERFORMANCE.";
+                  previewText = "PROMPT PREMIUM BLOQUEADO. ADQUIRA A BIBLIOTECA COMPLETA POR APENAS R$ 49,90 E LEVE O E-BOOK GRÁTIS!";
                   isBlurred = true;
                   lockedBadge = (
                     <span className="prompt-card__badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
