@@ -1,0 +1,85 @@
+/* CSS Variables & Design System for NSNexus */
+
+:root {
+  /* Colors */
+  --bg-primary: #06070d;
+  --bg-secondary: #0c0e17;
+  --bg-tertiary: #131724;
+  --bg-card: #181d2f;
+  --bg-card-hover: #1f263c;
+  
+  --border-color: rgba(255, 255, 255, 0.06);
+  --border-color-hover: rgba(255, 255, 255, 0.12);
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --accent-blue: #0066ff;
+  --accent-blue-rgb: 0, 102, 255;
+  --accent-cyan: #00f5d4;
+  --accent-cyan-rgb: 0, 245, 212;
+  --accent-purple: #7000ff;
+  --accent-purple-rgb: 112, 0, 255;
+  
+  /* Status Colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  
+  /* Gradients */
+  --grad-primary: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+  --grad-purple: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-blue) 100%);
+  --grad-dark: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  --grad-text: linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%);
+  --grad-glow: radial-gradient(circle, rgba(0, 102, 255, 0.15) 0%, rgba(6, 7, 13, 0) 70%);
+
+  /* Typography */
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+
+  /* Font Sizes */
+  --font-xs: 0.75rem;     /* 12px */
+  --font-sm: 0.875rem;    /* 14px */
+  --font-base: 1rem;      /* 16px */
+  --font-lg: 1.125rem;    /* 18px */
+  --font-xl: 1.25rem;     /* 20px */
+  --font-2xl: 1.5rem;     /* 24px */
+  --font-3xl: 1.875rem;   /* 30px */
+  --font-4xl: 2.25rem;    /* 36px */
+  --font-5xl: 3rem;       /* 48px */
+  --font-6xl: 3.75rem;    /* 60px */
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-24: 6rem;
+
+  /* Borders & Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+  
+  /* Shadows & Glows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-cyan-glow: 0 0 20px rgba(0, 245, 212, 0.2);
+  --shadow-blue-glow: 0 0 20px rgba(0, 102, 255, 0.25);
+  
+  /* Timing */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Layout */
+  --max-width: 1280px;
+  --header-height: 80px;
+}

@@ -1,0 +1,54 @@
+/* Media Queries & Responsive styling */
+
+@media (max-width: 1023px) {
+  .header {
+    height: 70px;
+  }
+  
+  .dashboard-layout {
+    margin-top: 70px;
+    min-height: calc(100vh - 70px);
+    flex-direction: column;
+  }
+
+  .dashboard-content {
+    padding: var(--space-6) var(--space-4);
+  }
+}
+
+@media (max-width: 767px) {
+  /* Landing page adjustments */
+  .hero__title {
+    font-size: var(--font-3xl);
+  }
+  
+  .hero__description {
+    font-size: var(--font-base);
+  }
+
+  .service-card {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .footer__grid {
+    gap: var(--space-8);
+  }
+}
+
+/* Print Styles */
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+  .header, .footer, .sidebar, .btn {
+    display: none !important;
+  }
+  .dashboard-content {
+    padding: 0;
+  }
+}
