@@ -26,22 +26,17 @@ export default function LoginPage() {
     try {
       await signIn(email, password);
       
-      // Redirect after login
-      if (typeof window !== 'undefined') {
-        const redirect = localStorage.getItem("post_login_redirect");
-        if (redirect) {
-          localStorage.removeItem("post_login_redirect");
-          router.push(redirect);
-        } else {
-          router.push('/dashboard');
-        }
+      // Redirect after login using window.location for reliable navigation
+      const redirect = localStorage.getItem("post_login_redirect");
+      if (redirect) {
+        localStorage.removeItem("post_login_redirect");
+        window.location.href = redirect;
       } else {
-        router.push('/dashboard');
+        window.location.href = '/dashboard';
       }
     } catch (err) {
       console.error(err);
       setError(err.message || 'Erro ao fazer login. Verifique suas credenciais.');
-    } finally {
       setLoading(false);
     }
   };
@@ -67,6 +62,15 @@ export default function LoginPage() {
     setError('');
     try {
       await signInWithGoogle();
+      
+      // Redirect after Google login
+      const redirect = localStorage.getItem("post_login_redirect");
+      if (redirect) {
+        localStorage.removeItem("post_login_redirect");
+        window.location.href = redirect;
+      } else {
+        window.location.href = '/dashboard';
+      }
     } catch (err) {
       console.error(err);
       setError(err.message || 'Erro ao autenticar com o Google.');

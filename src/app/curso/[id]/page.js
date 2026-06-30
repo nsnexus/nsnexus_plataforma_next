@@ -201,9 +201,15 @@ export default function CursoDetalhePage() {
                   <span className="material-symbols-outlined" style={{ fontSize: '20px', marginRight: '5px' }}>mail</span> Solicitar Treinamento
                 </a>
               ) : (
-                <Link href={`/checkout/${course.id}`} className="btn btn-primary btn-full" style={{ justifyContent: 'center' }}>
-                  Matricular-se Agora
-                </Link>
+                <a 
+                  href={course.paymentLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary btn-full"
+                  style={{ justifyContent: 'center', textDecoration: 'none' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', marginRight: '5px' }}>shopping_cart</span> Comprar
+                </a>
               )}
 
               <div style={{ marginTop: 'var(--space-6)', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
