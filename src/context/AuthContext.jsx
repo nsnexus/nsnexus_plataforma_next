@@ -157,16 +157,23 @@ export const AuthProvider = ({ children }) => {
 
         setUser(profileData);
       } else {
-        const mockUser = {
-          id: "mock-dev-id",
-          email: "dev@nsnexus.com.br",
-          name: "Desenvolvedor Teste",
-          avatar_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop",
-          role: "student",
-          progress: {},
-          enrolledCourses: ["ebook-ia-negocios", "audiobook-ia-negocios", "biblioteca-prompts-ia", "sistemas-sharepoint-moderno", "landing-page-whatsapp"]
-        };
-        setUser(mockUser);
+        const isLocalhost = typeof window !== 'undefined' && 
+          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+        if (isLocalhost) {
+          const mockUser = {
+            id: "mock-dev-id",
+            email: "dev@nsnexus.com.br",
+            name: "Desenvolvedor Teste",
+            avatar_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop",
+            role: "student",
+            progress: {},
+            enrolledCourses: ["ebook-ia-negocios", "audiobook-ia-negocios", "biblioteca-prompts-ia", "sistemas-sharepoint-moderno", "landing-page-whatsapp"]
+          };
+          setUser(mockUser);
+        } else {
+          setUser(null);
+        }
       }
       setLoading(false);
     };
@@ -183,16 +190,23 @@ export const AuthProvider = ({ children }) => {
         setUser(profileData);
         setLoading(false);
       } else {
-        const mockUser = {
-          id: "mock-dev-id",
-          email: "dev@nsnexus.com.br",
-          name: "Desenvolvedor Teste",
-          avatar_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop",
-          role: "student",
-          progress: {},
-          enrolledCourses: ["ebook-ia-negocios", "audiobook-ia-negocios", "biblioteca-prompts-ia", "sistemas-sharepoint-moderno", "landing-page-whatsapp"]
-        };
-        setUser(mockUser);
+        const isLocalhost = typeof window !== 'undefined' && 
+          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+        if (isLocalhost) {
+          const mockUser = {
+            id: "mock-dev-id",
+            email: "dev@nsnexus.com.br",
+            name: "Desenvolvedor Teste",
+            avatar_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop",
+            role: "student",
+            progress: {},
+            enrolledCourses: ["ebook-ia-negocios", "audiobook-ia-negocios", "biblioteca-prompts-ia", "sistemas-sharepoint-moderno", "landing-page-whatsapp"]
+          };
+          setUser(mockUser);
+        } else {
+          setUser(null);
+        }
         setLoading(false);
       }
     });
