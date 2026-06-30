@@ -175,14 +175,27 @@ export default function CheckoutPage() {
               )}
 
               {/* Action Button */}
-              <button 
-                onClick={handleSimulatePayment} 
-                disabled={processing}
-                className="btn btn-primary btn-full" 
-                style={{ marginTop: 'var(--space-6)', justifyContent: 'center' }}
-              >
-                {processing ? 'Confirmando...' : `Confirmar Pagamento Simulado — R$ ${course.price.toFixed(2)}`}
-              </button>
+              {course.paymentLink ? (
+                <a 
+                  href={course.paymentLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary btn-full" 
+                  style={{ marginTop: 'var(--space-6)', justifyContent: 'center', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>lock</span>
+                  Pagar com Mercado Pago — R$ {course.price.toFixed(2)}
+                </a>
+              ) : (
+                <button 
+                  onClick={handleSimulatePayment} 
+                  disabled={processing}
+                  className="btn btn-primary btn-full" 
+                  style={{ marginTop: 'var(--space-6)', justifyContent: 'center' }}
+                >
+                  {processing ? 'Confirmando...' : `Confirmar Pagamento — R$ ${course.price.toFixed(2)}`}
+                </button>
+              )}
 
             </div>
 
