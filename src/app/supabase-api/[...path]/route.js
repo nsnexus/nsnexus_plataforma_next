@@ -40,13 +40,13 @@ async function handleRequest(request, params) {
     }
   }
   
-  // Read body for writing methods
+  // Read body directly without clone to avoid stream lockups
   let body = null;
   if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
     try {
-      body = await request.clone().arrayBuffer();
+      body = await request.arrayBuffer();
     } catch (e) {
-      // Body reading failed (e.g. empty body)
+      // Body reading failed
     }
   }
   
@@ -58,19 +58,22 @@ async function handleRequest(request, params) {
       redirect: 'manual' // crucial to forward OAuth 302 redirects back to the browser
     });
     
-    // Copy response headers
+    // Copy response headers, filtering out hop-by-hop headers
     const responseHeaders = new Headers();
+    const hopByHopHeaders = ['content-encoding', 'content-length', 'transfer-encoding', 'connection', 'keep-alive'];
     for (const [key, value] of response.headers.entries()) {
-      // Exclude some headers that might conflict
-      if (key.toLowerCase() !== 'content-encoding') {
+      if (!hopByHopHeaders.includes(key.toLowerCase())) {
         responseHeaders.set(key, value);
       }
     }
     
     // Add CORS headers
     responseHeaders.set('Access-Control-Allow-Origin', '*');
+
+    // Buffer the response content to prevent compression/stream size issues
+    const resBody = await response.arrayBuffer();
     
-    return new Response(response.body, {
+    return new Response(resBody, {
       status: response.status,
       statusText: response.statusText,
       headers: responseHeaders
