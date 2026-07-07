@@ -860,8 +860,8 @@ function AdminContent() {
 
       {/* MANUAL PURCHASE MODAL */}
       {showAddPurchaseModal && (
-        <div className="video-modal video-modal--active" onClick={() => setShowAddPurchaseModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="video-modal__content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px', width: '90%', background: '#0f172a', border: '1px solid var(--border-color)', padding: '25px', borderRadius: '8px' }}>
+        <div className="video-modal video-modal--active" onClick={() => setShowAddPurchaseModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)' }}>
+          <div className="video-modal__content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px', width: '90%', background: '#0f172a', border: '1px solid var(--border-color)', padding: '25px', borderRadius: '8px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>Registrar Nova Venda Manual</h3>
               <button onClick={() => setShowAddPurchaseModal(false)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '24px', cursor: 'pointer' }}>&times;</button>
@@ -933,7 +933,7 @@ function AdminContent() {
 
       {/* COURSE ADD/EDIT MODAL */}
       {showCourseModal && (
-        <div className="video-modal video-modal--active" onClick={() => setShowCourseModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+        <div className="video-modal video-modal--active" onClick={() => setShowCourseModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)' }}>
           <div className="video-modal__content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', width: '90%', background: '#0f172a', border: '1px solid var(--border-color)', padding: '25px', borderRadius: '8px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>
