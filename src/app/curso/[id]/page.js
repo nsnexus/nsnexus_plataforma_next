@@ -264,9 +264,8 @@ export default function CursoDetalhePage() {
                 )}
               </div>
 
-              {/* CTA Button */}
               {isEnrolled ? (
-                <Link href={course.id === 'biblioteca-prompts-ia' ? '/biblioteca-prompts' : `/player/${course.id}/${course.syllabus[0]?.lessons[0]?.id}`} className="btn btn-primary btn-full" style={{ justifyContent: 'center' }}>
+                <Link href={course.id === 'biblioteca-prompts-ia' ? '/biblioteca-prompts' : `/player/${course.id}/${course.syllabus?.[0]?.lessons?.[0]?.id || ''}`} className="btn btn-primary btn-full" style={{ justifyContent: 'center' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '20px', marginRight: '5px' }}>menu_book</span> Estudar Agora
                 </Link>
               ) : isClosed ? (

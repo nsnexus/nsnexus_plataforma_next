@@ -108,16 +108,20 @@ function PlayerContent() {
 
       if (foundCourse) {
         let foundLesson = null;
-        foundCourse.syllabus.forEach(mod => {
-          mod.lessons.forEach(les => {
-            if (les.id === lessonId) {
-              foundLesson = les;
+        if (foundCourse.syllabus) {
+          foundCourse.syllabus.forEach(mod => {
+            if (mod.lessons) {
+              mod.lessons.forEach(les => {
+                if (les.id === lessonId) {
+                  foundLesson = les;
+                }
+              });
             }
           });
-        });
+        }
 
         // Default to first lesson if not found or not specified
-        if (!foundLesson && foundCourse.syllabus[0] && foundCourse.syllabus[0].lessons[0]) {
+        if (!foundLesson && foundCourse.syllabus?.[0]?.lessons?.[0]) {
           foundLesson = foundCourse.syllabus[0].lessons[0];
         }
         setActiveLesson(foundLesson);
@@ -153,11 +157,15 @@ function PlayerContent() {
 
   // Find next lesson
   let allLessonsList = [];
-  course.syllabus.forEach(mod => {
-    mod.lessons.forEach(les => {
-      allLessonsList.push(les);
+  if (course.syllabus) {
+    course.syllabus.forEach(mod => {
+      if (mod.lessons) {
+        mod.lessons.forEach(les => {
+          allLessonsList.push(les);
+        });
+      }
     });
-  });
+  }
 
   const currentIndex = allLessonsList.findIndex(l => l.id === activeLesson.id);
   const nextLesson = allLessonsList[currentIndex + 1];
@@ -193,13 +201,13 @@ function PlayerContent() {
         </div>
 
         <div style={{ overflowY: 'auto', flexGrow: 1 }} id="player-syllabus">
-          {course.syllabus.map((mod, modIdx) => (
+          {course.syllabus ? course.syllabus.map((mod, modIdx) => (
             <div key={modIdx} className="player-mod">
               <div className="player-mod__header" style={{ padding: 'var(--space-3) var(--space-4)', background: 'rgba(0,0,0,0.2)', fontSize: 'var(--font-xs)', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                 {mod.moduleTitle}
               </div>
               <div className="player-mod__list">
-                {mod.lessons.map(les => {
+                {mod.lessons?.map(les => {
                   const isActive = les.id === activeLesson.id;
                   const isCompleted = completedList.includes(les.id);
                   
@@ -233,7 +241,11 @@ function PlayerContent() {
                 })}
               </div>
             </div>
-          ))}
+          )) : (
+            <p style={{ padding: '20px', color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center' }}>
+              Nenhum conteúdo de aula cadastrado.
+            </p>
+          )}
         </div>
       </aside>
 

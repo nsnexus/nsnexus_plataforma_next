@@ -90,7 +90,7 @@ function DashboardContent() {
 
     // Default to first lesson if all completed or none found
     if (!nextLessonId && course.syllabus?.[0]?.lessons?.[0]) {
-      nextLessonId = course.syllabus[0].lessons[0].id;
+      nextLessonId = course.syllabus?.[0]?.lessons?.[0]?.id || '';
     }
 
     return `/player/${course.id}/${nextLessonId}`;
