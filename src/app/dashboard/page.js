@@ -1,12 +1,40 @@
 "use client";
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { db } from '../../utils/firebase/client';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 function DashboardContent() {
   const { user, courses } = useAuth();
-  const [activeTab, setActiveTab] = React.useState('courses');
+  const [activeTab, setActiveTab] = useState('courses');
+  const [pendingPurchases, setPendingPurchases] = useState([]);
+  const [selectedCertificateCourse, setSelectedCertificateCourse] = useState(null);
+
+  useEffect(() => {
+    if (user && user.id) {
+      const fetchPendingPurchases = async () => {
+        try {
+          const purchasesRef = collection(db, 'purchases');
+          const q = query(
+            purchasesRef, 
+            where('user_id', '==', user.id), 
+            where('status', '==', 'pending')
+          );
+          const querySnapshot = await getDocs(q);
+          const pending = [];
+          querySnapshot.forEach(doc => {
+            pending.push({ id: doc.id, ...doc.data() });
+          });
+          setPendingPurchases(pending);
+        } catch (e) {
+          console.error("Erro ao buscar compras pendentes:", e);
+        }
+      };
+      fetchPendingPurchases();
+    }
+  }, [user]);
 
   if (!user) {
     return (
@@ -90,6 +118,47 @@ function DashboardContent() {
           )}
         </div>
 
+        {/* Pending Purchases Alert */}
+        {pendingPurchases.length > 0 && (
+          <div style={{
+            background: 'rgba(234, 179, 8, 0.1)',
+            border: '1px solid rgba(234, 179, 8, 0.25)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-5) var(--space-6)',
+            marginBottom: 'var(--space-8)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#eab308', fontWeight: 'bold' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>hourglass_empty</span>
+              <span style={{ fontSize: 'var(--font-md)' }}>Pagamento sob Análise</span>
+            </div>
+            <p style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+              Identificamos o seu pedido para o(s) produto(s) abaixo. Nosso time está validando a transação. O acesso será liberado em breve!
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(0,0,0,0.2)', padding: '12px 15px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.03)' }}>
+              {pendingPurchases.map(p => {
+                const courseObj = courses.find(c => c.id === p.course_id);
+                return (
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', fontSize: 'var(--font-sm)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--text-muted)' }}>shopping_bag</span>
+                      <strong>{courseObj?.title || p.course_id}</strong>
+                    </div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                      Código: <span style={{ color: 'var(--accent-cyan)', fontFamily: 'monospace' }}>{p.payment_id}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+              Dica: Caso tenha acabado de pagar por boleto ou cartão/PIX via link externo, a compensação pode levar alguns minutos.
+            </p>
+          </div>
+        )}
+
         {/* Enrolled Products Section with Tabs */}
         <div style={{ marginBottom: 'var(--space-12)' }}>
           
@@ -146,10 +215,33 @@ function DashboardContent() {
                             <div style={{ width: `${percentage}%`, height: '100%', background: 'var(--accent-cyan)', transition: 'width 0.3s' }}></div>
                           </div>
                         </div>
-                        <div style={{ marginTop: 'auto', paddingTop: 'var(--space-4)' }}>
+                        <div style={{ marginTop: 'auto', paddingTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           <Link href={getContinueLink(course)} className="btn btn-primary btn-full" style={{ justifyContent: 'center' }}>
                             {completedCount > 0 ? 'Continuar Curso' : 'Iniciar Curso'}
                           </Link>
+                          {(percentage === 100 || user.completedCourses?.includes(course.id)) && (
+                            <button 
+                              onClick={() => setSelectedCertificateCourse(course)}
+                              className="btn btn-full" 
+                              style={{ 
+                                justifyContent: 'center', 
+                                background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                                border: 'none', 
+                                color: 'white',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                cursor: 'pointer',
+                                padding: '8px 12px',
+                                fontSize: 'var(--font-sm)',
+                                borderRadius: 'var(--radius-md)',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>workspace_premium</span>
+                              Gerar Certificado
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -295,6 +387,183 @@ function DashboardContent() {
         )}
 
       </section>
+
+      {/* Styles inline para impressão do certificado */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          .print-certificate-container, .print-certificate-container * {
+            visibility: visible !important;
+          }
+          .print-certificate-container {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            background: white !important;
+            border: none !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+          .print-modal-overlay {
+            background: white !important;
+            position: absolute !important;
+            padding: 0 !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+          }
+        }
+      `}</style>
+
+      {/* Certificate Modal */}
+      {selectedCertificateCourse && (
+        <div 
+          className="video-modal video-modal--active print-modal-overlay" 
+          onClick={() => setSelectedCertificateCourse(null)} 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            zIndex: 2000, 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0,0,0,0.8)'
+          }}
+        >
+          <div 
+            className="print-certificate-container"
+            onClick={(e) => e.stopPropagation()} 
+            style={{ 
+              maxWidth: '850px', 
+              width: '95%', 
+              background: '#ffffff', 
+              color: '#0f172a',
+              padding: '40px', 
+              borderRadius: '12px', 
+              position: 'relative',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+            }}
+          >
+            {/* Close Button (Hidden in Print) */}
+            <button 
+              className="no-print"
+              onClick={() => setSelectedCertificateCourse(null)} 
+              style={{ 
+                position: 'absolute',
+                top: '15px',
+                right: '20px',
+                background: 'transparent', 
+                border: 'none', 
+                color: '#64748b', 
+                fontSize: '28px', 
+                cursor: 'pointer',
+                lineHeight: 1
+              }}
+            >
+              &times;
+            </button>
+
+            {/* Certificate Border Design */}
+            <div style={{
+              border: '6px double #d97706',
+              padding: '30px',
+              borderRadius: '8px',
+              textAlign: 'center',
+              position: 'relative',
+              background: '#fcfbf7'
+            }}>
+              
+              {/* Decorative Corner Seals */}
+              <div style={{ position: 'absolute', top: '10px', left: '10px', width: '20px', height: '20px', borderTop: '2px solid #d97706', borderLeft: '2px solid #d97706' }}></div>
+              <div style={{ position: 'absolute', top: '10px', right: '10px', width: '20px', height: '20px', borderTop: '2px solid #d97706', borderRight: '2px solid #d97706' }}></div>
+              <div style={{ position: 'absolute', bottom: '10px', left: '10px', width: '20px', height: '20px', borderBottom: '2px solid #d97706', borderLeft: '2px solid #d97706' }}></div>
+              <div style={{ position: 'absolute', bottom: '10px', right: '10px', width: '20px', height: '20px', borderBottom: '2px solid #d97706', borderRight: '2px solid #d97706' }}></div>
+
+              {/* Logo/Badge */}
+              <div style={{ marginBottom: '20px' }}>
+                <span className="accent-gradient" style={{ fontSize: '24px', fontWeight: '800', fontFamily: 'var(--font-heading)', letterSpacing: '0.05em' }}>
+                  NSNEXUS
+                </span>
+                <div style={{ fontSize: '10px', textTransform: 'uppercase', color: '#64748b', marginTop: '2px', fontWeight: 'bold' }}>
+                  Treinamentos Corporativos
+                </div>
+              </div>
+
+              {/* Title */}
+              <h2 style={{ fontSize: '28px', fontFamily: 'var(--font-heading)', fontWeight: 'bold', color: '#1e293b', marginBottom: '20px', letterSpacing: '0.02em' }}>
+                CERTIFICADO DE CONCLUSÃO
+              </h2>
+
+              <p style={{ fontSize: '15px', color: '#475569', lineHeight: 1.8, maxWidth: '650px', margin: '0 auto 30px auto' }}>
+                Certificamos que o aluno(a) <strong style={{ fontSize: '18px', color: '#0f172a', borderBottom: '1px solid #cbd5e1', paddingBottom: '2px' }}>{user.name}</strong> concluiu com êxito o treinamento corporativo
+                <br />
+                <strong style={{ fontSize: '18px', color: '#d97706' }}>{selectedCertificateCourse.title}</strong>,
+                com nível de qualificação <strong style={{ color: '#0f172a' }}>{selectedCertificateCourse.level}</strong>, carga horária de <strong style={{ color: '#0f172a' }}>{selectedCertificateCourse.duration}</strong> e aproveitamento integral do conteúdo programático.
+              </p>
+
+              {/* Signatures & Info Footer */}
+              <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', marginTop: '40px', flexWrap: 'wrap', gap: '30px' }}>
+                <div>
+                  <div style={{ borderBottom: '1px solid #94a3b8', width: '200px', margin: '0 auto 8px auto' }}></div>
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>Coordenação Acadêmica</div>
+                  <div style={{ fontSize: '10px', color: '#64748b' }}>NSNexus Education</div>
+                </div>
+
+                {/* Seal Icon */}
+                <div style={{ width: '70px', height: '70px', borderRadius: '50%', border: '2px dashed #d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fef3c7', flexShrink: 0 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '36px', color: '#d97706' }}>workspace_premium</span>
+                </div>
+
+                <div>
+                  <div style={{ borderBottom: '1px solid #94a3b8', width: '200px', margin: '0 auto 8px auto', fontSize: '13px', color: '#334155', fontFamily: 'monospace' }}>
+                    {new Date().toLocaleDateString('pt-BR')}
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>Data de Emissão</div>
+                  <div style={{ fontSize: '10px', color: '#64748b' }}>Acesso Vitalício</div>
+                </div>
+              </div>
+
+              {/* Authenticity Hash */}
+              <div style={{ fontSize: '9px', color: '#94a3b8', marginTop: '35px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Código de Autenticidade: <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>NS-{selectedCertificateCourse.id.substring(0,4).toUpperCase()}-{user.id.substring(0,6).toUpperCase()}</span>
+              </div>
+
+            </div>
+
+            {/* Print & Close Controls (Hidden in Print) */}
+            <div className="no-print" style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button 
+                onClick={() => setSelectedCertificateCourse(null)} 
+                className="btn btn-outline"
+                style={{ borderColor: '#cbd5e1', color: '#475569' }}
+              >
+                Fechar
+              </button>
+              <button 
+                onClick={() => window.print()} 
+                className="btn btn-primary"
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>print</span>
+                Imprimir / Salvar PDF
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </main>
   );
 }

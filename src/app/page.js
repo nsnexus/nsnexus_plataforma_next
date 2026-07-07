@@ -111,13 +111,7 @@ export default function Home() {
   const [modalVideo, setModalVideo] = useState(null);
   const [modalTitle, setModalTitle] = useState('');
   
-  // Testimonials stack states
-  const [testimonials, setTestimonials] = useState(TESTIMONIALS_DATA);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [dragCurrentX, setDragCurrentX] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  
-  const frontCardRef = useRef(null);
+  // Selected testimonials display
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -344,68 +338,7 @@ export default function Home() {
     setModalTitle('');
   };
 
-  // Rotate testimonials stack
-  const shuffleTestimonials = () => {
-    setTestimonials(prev => {
-      const next = [...prev];
-      const first = next.shift();
-      next.push(first);
-      return next;
-    });
-  };
-
-  // Drag and drop handlers for testimonials stack
-  const handleDragStart = (clientX) => {
-    setDragStartX(clientX);
-    setDragCurrentX(clientX);
-    setIsDragging(true);
-    if (frontCardRef.current) {
-      frontCardRef.current.style.transition = 'none';
-    }
-  };
-
-  const handleDragMove = (clientX) => {
-    if (!isDragging) return;
-    setDragCurrentX(clientX);
-    const deltaX = clientX - dragStartX;
-    if (deltaX < 50 && frontCardRef.current) {
-      const rotation = -6 + (deltaX / 10);
-      frontCardRef.current.style.transform = `translate3d(${deltaX}px, 0, 0) rotate(${rotation}deg)`;
-    }
-  };
-
-  const handleDragEnd = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    const deltaX = dragCurrentX - dragStartX;
-    
-    if (frontCardRef.current) {
-      frontCardRef.current.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease';
-      
-      if (deltaX < -120) {
-        // Swipe left animation
-        frontCardRef.current.style.transform = 'translate3d(-400px, 0, 0) rotate(-15deg)';
-        frontCardRef.current.style.opacity = '0';
-        
-        setTimeout(() => {
-          shuffleTestimonials();
-          if (frontCardRef.current) {
-            frontCardRef.current.style.transform = '';
-            frontCardRef.current.style.opacity = '';
-            frontCardRef.current.style.transition = '';
-          }
-        }, 200);
-      } else {
-        // Bounce back
-        frontCardRef.current.style.transform = '';
-        setTimeout(() => {
-          if (frontCardRef.current) {
-            frontCardRef.current.style.transition = '';
-          }
-        }, 350);
-      }
-    }
-  };
+  // Testimonials stack logic removed - replaced with 3-column layout
 
   return (
     <>
@@ -650,53 +583,49 @@ export default function Home() {
             <h2 style={{ fontSize: 'var(--font-3xl)', marginTop: 'var(--space-2)' }}>O que dizem os nossos clientes e alunos</h2>
           </div>
           
-          <div className="testimonial-stack-container">
-            <div className="testimonial-stack" id="testimonial-stack">
-              {testimonials.map((test, index) => {
-                let posClass = "pos-hidden";
-                let isFront = false;
-                if (index === 0) {
-                  posClass = "pos-front";
-                  isFront = true;
-                } else if (index === 1) {
-                  posClass = "pos-middle";
-                } else if (index === 2) {
-                  posClass = "pos-back";
-                }
-
-                return (
-                  <div 
-                    key={test.name}
-                    ref={isFront ? frontCardRef : null}
-                    className={`testimonial-card-stack-item ${posClass}`} 
-                    data-index={index}
-                    onMouseDown={(e) => isFront && handleDragStart(e.clientX)}
-                    onMouseMove={(e) => isFront && handleDragMove(e.clientX)}
-                    onMouseUp={() => isFront && handleDragEnd()}
-                    onMouseLeave={() => isFront && handleDragEnd()}
-                    onTouchStart={(e) => isFront && handleDragStart(e.touches[0].clientX)}
-                    onTouchMove={(e) => isFront && handleDragMove(e.touches[0].clientX)}
-                    onTouchEnd={() => isFront && handleDragEnd()}
-                    style={{ cursor: isFront ? 'grab' : 'default', touchAction: 'none' }}
-                  >
-                    <img src={test.avatar} alt={`Avatar of ${test.name}`} className="testimonial-card-stack-item__avatar" style={{ flexShrink: 0 }} />
-                    <span className="testimonial-card-stack-item__quote" style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '15px 0' }}>"{test.quote}"</span>
-                    <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                      <span className="testimonial-card-stack-item__author">{test.name}</span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', textAlign: 'center' }}>{test.title}</span>
-                    </div>
+          <div className="card-grid" style={{ marginTop: 'var(--space-10)' }}>
+            {[
+              TESTIMONIALS_DATA.find(t => t.name === "Rodrigo Silva"),
+              TESTIMONIALS_DATA.find(t => t.name === "Juliana Ramos"),
+              TESTIMONIALS_DATA.find(t => t.name === "Ricardo Souza")
+            ].filter(Boolean).map((test) => (
+              <div 
+                key={test.name}
+                style={{
+                  background: 'rgba(15, 23, 42, 0.45)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: 'var(--space-8) var(--space-6)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: '260px'
+                }}
+              >
+                <p style={{ 
+                  fontStyle: 'italic', 
+                  color: 'var(--text-secondary)', 
+                  fontSize: 'var(--font-sm)', 
+                  lineHeight: 1.6, 
+                  marginBottom: 'var(--space-8)',
+                  flexGrow: 1
+                }}>
+                  "{test.quote}"
+                </p>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: 'auto' }}>
+                  <img 
+                    src={test.avatar} 
+                    alt={test.name} 
+                    style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #334155' }} 
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <strong style={{ color: 'white', fontSize: 'var(--font-sm)', fontWeight: 'bold' }}>{test.name}</strong>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '11px', lineHeight: 1.4 }}>{test.title}</span>
                   </div>
-                );
-              })}
-            </div>
-            
-            <p className="testimonial-stack-hint">
-              <span className="material-symbols-outlined" style={{ fontSize: '16px', verticalAlign: 'middle', marginRight: '4px' }}>swipe</span>
-              Arraste o card da frente para a esquerda para ver o próximo depoimento, ou clique no botão abaixo:
-            </p>
-            <div style={{ textAlign: 'center', marginTop: '15px' }}>
-              <button className="btn btn-sm btn-secondary" onClick={shuffleTestimonials}>Próximo Depoimento</button>
-            </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

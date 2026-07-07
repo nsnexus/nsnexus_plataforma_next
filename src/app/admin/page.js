@@ -30,6 +30,11 @@ function AdminContent() {
   const [manualPrice, setManualPrice] = useState(0);
   const [addingPurchase, setAddingPurchase] = useState(false);
 
+  // Certificates management states
+  const [showCertificatesModal, setShowCertificatesModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [savingCertificates, setSavingCertificates] = useState(false);
+
   // Courses CRUD state
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null); // null when adding
@@ -86,6 +91,39 @@ function AdminContent() {
       alert('Erro ao buscar dados do banco de dados do Firestore.');
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const handleToggleCourseCompletion = async (targetUser, courseId, shouldComplete) => {
+    setSavingCertificates(true);
+    try {
+      const currentCompleted = targetUser.completedCourses || [];
+      let updatedCompleted = [];
+      if (shouldComplete) {
+        if (!currentCompleted.includes(courseId)) {
+          updatedCompleted = [...currentCompleted, courseId];
+        } else {
+          updatedCompleted = currentCompleted;
+        }
+      } else {
+        updatedCompleted = currentCompleted.filter(id => id !== courseId);
+      }
+
+      // Update in Firestore
+      const userRef = doc(db, 'profiles', targetUser.id);
+      await updateDoc(userRef, { completedCourses: updatedCompleted });
+
+      // Update local state to reflect change immediately
+      const updatedUser = { ...targetUser, completedCourses: updatedCompleted };
+      setSelectedUser(updatedUser);
+      setDbUsers(prev => prev.map(u => u.id === targetUser.id ? updatedUser : u));
+
+      alert('Certificado atualizado com sucesso!');
+    } catch (err) {
+      console.error('[Admin] Erro ao atualizar conclusão do curso:', err);
+      alert('Erro ao atualizar conclusão no Firestore.');
+    } finally {
+      setSavingCertificates(false);
     }
   };
 
@@ -312,7 +350,9 @@ function AdminContent() {
           level: courseForm.level,
           banner: courseForm.banner,
           isClosed: courseForm.is_closed,
-          syllabus: courseForm.syllabus
+          syllabus: courseForm.syllabus,
+          rating: 5.0,
+          reviewsCount: 0
         });
 
         alert("Curso cadastrado com sucesso!");
@@ -539,6 +579,7 @@ function AdminContent() {
                         <th style={{ padding: '15px' }}>Nível / Regras</th>
                         <th style={{ padding: '15px' }}>Progresso Salvo</th>
                         <th style={{ padding: '15px' }}>Data Cadastro</th>
+                        <th style={{ padding: '15px' }}>Ações</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -555,18 +596,48 @@ function AdminContent() {
                             </span>
                           </td>
                           <td style={{ padding: '15px', color: 'var(--text-muted)', fontSize: '11px' }}>
-                            {u.progress ? Object.keys(u.progress).map(courseId => (
-                              <div key={courseId}>{courseId}: {u.progress[courseId]?.completedLessons?.length || 0} aulas</div>
-                            )) : '—'}
+                            {u.progress ? Object.keys(u.progress).map(courseId => {
+                              const lessonsCount = Array.isArray(u.progress[courseId])
+                                ? u.progress[courseId].length
+                                : u.progress[courseId]?.completedLessons?.length || 0;
+                              return (
+                                <div key={courseId}>{courseId}: {lessonsCount} aulas</div>
+                              );
+                            }) : '—'}
                           </td>
                           <td style={{ padding: '15px', color: 'var(--text-muted)' }}>
                             {u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '—'}
+                          </td>
+                          <td style={{ padding: '15px' }}>
+                            <button
+                              onClick={() => {
+                                setSelectedUser(u);
+                                setShowCertificatesModal(true);
+                              }}
+                              className="btn btn-sm"
+                              style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '5px', 
+                                borderColor: '#d97706', 
+                                color: '#f59e0b',
+                                background: 'transparent',
+                                border: '1px solid #d97706',
+                                padding: '5px 10px',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                                fontSize: '11px'
+                              }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>workspace_premium</span>
+                              Certificados
+                            </button>
                           </td>
                         </tr>
                       ))}
                       {filteredUsers.length === 0 && (
                         <tr>
-                          <td colSpan="5" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum usuário encontrado.</td>
+                          <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum usuário encontrado.</td>
                         </tr>
                       )}
                     </tbody>
@@ -1005,6 +1076,137 @@ function AdminContent() {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Gerenciamento de Certificados */}
+      {showCertificatesModal && selectedUser && (
+        <div 
+          className="video-modal video-modal--active" 
+          onClick={() => setShowCertificatesModal(false)}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            zIndex: 1000, 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'rgba(0,0,0,0.8)'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            style={{ 
+              maxWidth: '650px', 
+              width: '90%', 
+              background: 'var(--bg-secondary)', 
+              border: '1px solid var(--border-color)',
+              color: 'white',
+              padding: '30px', 
+              borderRadius: '12px', 
+              position: 'relative'
+            }}
+          >
+            <button 
+              onClick={() => setShowCertificatesModal(false)} 
+              style={{ 
+                position: 'absolute',
+                top: '15px',
+                right: '20px',
+                background: 'transparent', 
+                border: 'none', 
+                color: 'var(--text-secondary)', 
+                fontSize: '28px', 
+                cursor: 'pointer',
+                lineHeight: 1
+              }}
+            >
+              &times;
+            </button>
+
+            <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 'bold', marginBottom: '8px' }}>
+              Gerenciar Certificados
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', marginBottom: '20px' }}>
+              Estudante: <strong>{selectedUser.name}</strong> ({selectedUser.email})
+            </p>
+
+            <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '5px' }}>
+              {courses.map(course => {
+                const isPurchased = dbPurchases.some(p => p.user_id === selectedUser.id && p.course_id === course.id && p.status === 'approved');
+                const isCompleted = selectedUser.completedCourses?.includes(course.id);
+                
+                // Calculate lessons progress
+                const userProgressData = selectedUser.progress?.[course.id];
+                const completedLessonsCount = Array.isArray(userProgressData) 
+                  ? userProgressData.length 
+                  : userProgressData?.completedLessons?.length || 0;
+                
+                const totalLessons = course.syllabus?.reduce((acc, mod) => acc + (mod.lessons?.length || 0), 0) || 0;
+                const progressPercent = totalLessons > 0 ? Math.round((completedLessonsCount / totalLessons) * 100) : 0;
+
+                return (
+                  <div 
+                    key={course.id} 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between', 
+                      padding: '12px', 
+                      background: 'rgba(255,255,255,0.02)', 
+                      border: '1px solid rgba(255,255,255,0.05)', 
+                      borderRadius: '8px',
+                      gap: '15px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold' }}>{course.title}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span className={`badge ${isPurchased ? 'badge-ia' : 'badge-closed'}`} style={{ fontSize: '9px', textTransform: 'uppercase' }}>
+                          {isPurchased ? 'Matriculado' : 'Sem Inscrição'}
+                        </span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          Progresso: {progressPercent}% ({completedLessonsCount}/{totalLessons} aulas)
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      disabled={savingCertificates}
+                      onClick={() => handleToggleCourseCompletion(selectedUser, course.id, !isCompleted)}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '11px',
+                        background: isCompleted ? '#ef4444' : '#10b981',
+                        border: 'none',
+                        color: 'white',
+                        cursor: 'pointer',
+                        borderRadius: '4px',
+                        flexShrink: 0,
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {isCompleted ? 'Remover Conclusão' : 'Liberar Certificado'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '25px' }}>
+              <button 
+                onClick={() => setShowCertificatesModal(false)} 
+                className="btn btn-outline"
+                style={{ fontSize: 'var(--font-sm)' }}
+              >
+                Concluir
+              </button>
+            </div>
+
           </div>
         </div>
       )}

@@ -125,9 +125,7 @@ export const AuthProvider = ({ children }) => {
         enrolledCourses.push('ebook-ia-negocios');
       }
 
-      // Auto-unlock E-book and Audiobook for local testing/homologation
-      if (!enrolledCourses.includes('ebook-ia-negocios')) enrolledCourses.push('ebook-ia-negocios');
-      if (!enrolledCourses.includes('audiobook-ia-negocios')) enrolledCourses.push('audiobook-ia-negocios');
+      // Auto-unlock E-book and Audiobook homologation code removed to prevent unauthorized access in production.
 
       const defaultAvatar = "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=100&auto=format&fit=crop";
 
@@ -138,7 +136,8 @@ export const AuthProvider = ({ children }) => {
         avatar_url: profile.avatar_url || defaultAvatar,
         role: profile.role || 'student',
         progress: profile.progress || {},
-        enrolledCourses: enrolledCourses
+        enrolledCourses: enrolledCourses,
+        completedCourses: profile.completedCourses || []
       };
     } catch (error) {
       console.error("Error loading user profile:", error);
@@ -170,9 +169,10 @@ export const AuthProvider = ({ children }) => {
             email: "dev@nsnexus.com.br",
             name: "Desenvolvedor Teste",
             avatar_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop",
-            role: "student",
+            role: "admin",
             progress: {},
-            enrolledCourses: ["ebook-ia-negocios", "audiobook-ia-negocios", "biblioteca-prompts-ia", "sistemas-sharepoint-moderno", "landing-page-whatsapp"]
+            enrolledCourses: ["ebook-ia-negocios", "audiobook-ia-negocios", "biblioteca-prompts-ia", "sistemas-sharepoint-moderno", "landing-page-whatsapp"],
+            completedCourses: []
           };
           setUser(mockUser);
         } else {
@@ -239,17 +239,27 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const currentProgress = { ...user.progress };
+      
+      // Initialize or migrate if it was a plain array
       if (!currentProgress[courseId]) {
-        currentProgress[courseId] = [];
+        currentProgress[courseId] = { completedLessons: [] };
+      } else if (Array.isArray(currentProgress[courseId])) {
+        currentProgress[courseId] = { completedLessons: currentProgress[courseId] };
+      } else if (!currentProgress[courseId].completedLessons) {
+        currentProgress[courseId].completedLessons = [];
       }
 
+      let lessons = [...currentProgress[courseId].completedLessons];
+
       if (isCompleted) {
-        if (!currentProgress[courseId].includes(lessonId)) {
-          currentProgress[courseId].push(lessonId);
+        if (!lessons.includes(lessonId)) {
+          lessons.push(lessonId);
         }
       } else {
-        currentProgress[courseId] = currentProgress[courseId].filter(id => id !== lessonId);
+        lessons = lessons.filter(id => id !== lessonId);
       }
+
+      currentProgress[courseId] = { completedLessons: lessons };
 
       // Sync with Firestore profiles collection
       const profileRef = doc(db, 'profiles', user.id);

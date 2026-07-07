@@ -6,8 +6,9 @@ import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import { db } from '../../../utils/firebase/client';
 import { collection, addDoc } from 'firebase/firestore';
+import ProtectedRoute from '../../../components/ProtectedRoute';
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const params = useParams();
   const { courseId } = params;
   const router = useRouter();
@@ -77,6 +78,83 @@ export default function CheckoutPage() {
       router.push('/dashboard');
     } catch (err) {
       console.error("Erro ao registrar compra no banco de dados:", err);
+      alert("Erro ao confirmar compra: " + err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleMercadoPagoPayment = async () => {
+    if (!user) {
+      alert("Por favor, faça login para continuar a compra.");
+      if (typeof window !== 'undefined') {
+        localStorage.setItem("post_login_redirect", `/checkout/${course.id}`);
+      }
+      router.push('/login');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      let checkoutUrl = course.paymentLink; // Fallback para o link estático
+      let transactionId = 'MP-PENDING-' + Math.floor(10000000 + Math.random() * 90000000);
+
+      try {
+        // Tenta chamar a rota dinâmica de checkout
+        const response = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            courseId: course.id,
+            courseTitle: course.title,
+            coursePrice: course.price,
+            userId: user.id,
+            userEmail: user.email
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.init_point) {
+            checkoutUrl = data.init_point;
+            // Extrai o ID da preferência do link de checkout se possível
+            const prefIdMatch = data.init_point.match(/pref_id=([^&]+)/);
+            if (prefIdMatch && prefIdMatch[1]) {
+              transactionId = 'MP-PREF-' + prefIdMatch[1];
+            }
+          }
+        } else {
+          const errData = await response.json();
+          console.warn("Mercado Pago dinâmico não disponível:", errData.error);
+          alert("Aviso: Iniciando pagamento via link alternativo (Mercado Pago dinâmico indisponível: " + errData.error + ")");
+        }
+      } catch (apiErr) {
+        console.warn("Falha de conexão com a API de checkout:", apiErr);
+      }
+
+      // Salva a intenção de compra como pendente no Firestore
+      await addDoc(collection(db, 'purchases'), {
+        user_id: user.id,
+        user_email: user.email,
+        user_name: user.name,
+        course_id: course.id,
+        price_paid: course.price,
+        status: 'pending', // Pagamento pendente de confirmação
+        payment_id: transactionId,
+        created_at: new Date().toISOString()
+      });
+
+      alert("Redirecionando para o Mercado Pago para concluir o pagamento. Seu acesso será liberado assim que o pagamento for verificado.");
+      
+      // Abre o link do Mercado Pago (dinâmico ou fallback) em uma nova guia
+      window.open(checkoutUrl, '_blank');
+      
+      // Redireciona o usuário para o dashboard
+      router.push('/dashboard');
+    } catch (err) {
+      console.error("Erro ao registrar intenção de compra no banco de dados:", err);
       alert("Erro ao confirmar compra: " + err.message);
     } finally {
       setProcessing(false);
@@ -176,16 +254,15 @@ export default function CheckoutPage() {
 
               {/* Action Button */}
               {course.paymentLink ? (
-                <a 
-                  href={course.paymentLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button 
+                  onClick={handleMercadoPagoPayment}
+                  disabled={processing}
                   className="btn btn-primary btn-full" 
-                  style={{ marginTop: 'var(--space-6)', justifyContent: 'center', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  style={{ marginTop: 'var(--space-6)', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>lock</span>
-                  Pagar com Mercado Pago — R$ {course.price.toFixed(2)}
-                </a>
+                  {processing ? 'Confirmando...' : `Pagar com Mercado Pago — R$ ${course.price.toFixed(2)}`}
+                </button>
               ) : (
                 <button 
                   onClick={handleSimulatePayment} 
@@ -240,5 +317,13 @@ export default function CheckoutPage() {
 
       </section>
     </main>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <ProtectedRoute>
+      <CheckoutContent />
+    </ProtectedRoute>
   );
 }
