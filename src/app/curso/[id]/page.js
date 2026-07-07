@@ -23,25 +23,13 @@ export default function CursoDetalhePage() {
     }
   }, [id, courses]);
 
-  if (!course) {
-    return (
-      <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: 'white' }}>
-        <p>Carregando detalhes do curso...</p>
-      </div>
-    );
-  }
-
-  const isBiblioteca = course.id === 'biblioteca-prompts-ia';
-  const isEnrolled = user && user.enrolledCourses && user.enrolledCourses.includes(course.id);
-  const isClosed = course.isClosed;
-
   const handleBuyClick = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (processingBuy) return;
 
     if (!user) {
       if (typeof window !== 'undefined') {
-        localStorage.setItem("post_login_redirect", `/curso/${course.id}?buy=true`);
+        localStorage.setItem("post_login_redirect", `/curso/${course?.id}?buy=true`);
       }
       router.push('/login');
       return;
@@ -49,7 +37,7 @@ export default function CursoDetalhePage() {
 
     setProcessingBuy(true);
     try {
-      let checkoutUrl = course.paymentLink || '#';
+      let checkoutUrl = course?.paymentLink || '#';
       let transactionId = 'MP-PENDING-' + Math.floor(10000000 + Math.random() * 90000000);
 
       try {
@@ -59,9 +47,9 @@ export default function CursoDetalhePage() {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            courseId: course.id,
-            courseTitle: course.title,
-            coursePrice: course.price,
+            courseId: course?.id,
+            courseTitle: course?.title,
+            coursePrice: course?.price || 0,
             userId: user.id,
             userEmail: user.email
           })
@@ -86,8 +74,8 @@ export default function CursoDetalhePage() {
         user_id: user.id,
         user_email: user.email,
         user_name: user.name || 'Aluno',
-        course_id: course.id,
-        price_paid: course.price,
+        course_id: course?.id,
+        price_paid: course?.price || 0,
         status: 'pending',
         payment_id: transactionId,
         created_at: new Date().toISOString()
@@ -112,6 +100,21 @@ export default function CursoDetalhePage() {
       }
     }
   }, [user, course]);
+
+  if (!course) {
+    return (
+      <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: 'white' }}>
+        <p>Carregando detalhes do curso...</p>
+      </div>
+    );
+  }
+
+  const isBiblioteca = course.id === 'biblioteca-prompts-ia';
+  const isEnrolled = user && user.enrolledCourses && user.enrolledCourses.includes(course.id);
+  const isClosed = course.isClosed;
+  const totalLessons = course.syllabus?.reduce((acc, mod) => acc + (mod.lessons?.length || 0), 0) || 0;
+
+
 
   return (
     <main style={{ paddingTop: '100px', minHeight: '80vh', background: 'var(--bg-primary)', color: 'white' }}>
