@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }) => {
       if (!profile) {
         console.log("Profile not found in database. Creating default profile in Firestore...");
         const fallbackName = userEmail ? userEmail.split('@')[0] : 'Estudante';
-        const defaultAvatar = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop";
+        const defaultAvatar = "";
         
         const newProfile = {
           id: userId,
@@ -206,7 +206,7 @@ export const AuthProvider = ({ children }) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const userId = userCredential.user.uid;
 
-    const defaultAvatar = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop";
+    const defaultAvatar = "";
     const newProfile = {
       id: userId,
       email: email,

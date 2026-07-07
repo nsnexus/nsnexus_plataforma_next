@@ -4,13 +4,103 @@ import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { db } from '../../utils/firebase/client';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 
 function DashboardContent() {
-  const { user, courses } = useAuth();
+  const { user, courses, reloadUser } = useAuth();
   const [activeTab, setActiveTab] = useState('courses');
   const [pendingPurchases, setPendingPurchases] = useState([]);
   const [selectedCertificateCourse, setSelectedCertificateCourse] = useState(null);
+
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhotoBase64, setEditPhotoBase64] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const getInitials = (name) => {
+    if (!name) return 'EX';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const handleOpenEditProfile = () => {
+    setEditName(user.name || '');
+    setEditPhotoBase64(user.avatar_url && !user.avatar_url.includes('unsplash.com') ? user.avatar_url : '');
+    setShowEditProfileModal(true);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert("Por favor, selecione uma imagem válida.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 200;
+        const MAX_HEIGHT = 200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        setEditPhotoBase64(compressedBase64);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (!editName.trim()) {
+      alert("O nome não pode ficar em branco.");
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      const profileRef = doc(db, 'profiles', user.id);
+      await updateDoc(profileRef, {
+        name: editName.trim(),
+        avatar_url: editPhotoBase64
+      });
+
+      await reloadUser();
+      alert("Perfil atualizado com sucesso!");
+      setShowEditProfileModal(false);
+    } catch (err) {
+      console.error("Erro ao salvar perfil:", err);
+      alert("Erro ao salvar perfil: " + err.message);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   useEffect(() => {
     if (user && user.id) {
@@ -102,17 +192,59 @@ function DashboardContent() {
         
         {/* Student Profile Card */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-6)', background: 'rgba(15, 23, 42, 0.45)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-10)', flexWrap: 'wrap' }}>
-          <img 
-            src={user.avatar_url} 
-            alt={user.name} 
-            style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-cyan)' }} 
-          />
-          <div>
-            <h1 style={{ fontSize: 'var(--font-2xl)', fontWeight: 'bold' }}>Olá, {user.name}!</h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)' }}>Estudante NSNexus • {user.email}</p>
+          {user.avatar_url && !user.avatar_url.includes('unsplash.com') ? (
+            <img 
+              src={user.avatar_url} 
+              alt={user.name} 
+              style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-cyan)' }} 
+            />
+          ) : (
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-cyan))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '28px',
+              fontWeight: 'bold',
+              color: 'white',
+              border: '2px solid var(--accent-cyan)',
+              flexShrink: 0
+            }}>
+              {getInitials(user.name)}
+            </div>
+          )}
+          
+          <div style={{ flexGrow: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: 'var(--font-2xl)', fontWeight: 'bold', margin: 0 }}>Olá, {user.name}!</h1>
+              <button 
+                onClick={handleOpenEditProfile} 
+                className="btn btn-sm btn-outline" 
+                style={{ 
+                  padding: '4px 10px', 
+                  fontSize: '11px', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '4px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  color: 'white',
+                  cursor: 'pointer',
+                  borderRadius: '4px'
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>edit</span>
+                Editar Perfil
+              </button>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', marginTop: '4px' }}>Estudante NSNexus • {user.email}</p>
           </div>
+          
           {user.role === 'admin' && (
-            <Link href="/admin" className="btn btn-sm btn-primary" style={{ marginLeft: 'auto', background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-blue))', border: 'none', color: 'white' }}>
+            <Link href="/admin" className="btn btn-sm btn-primary" style={{ background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-blue))', border: 'none', color: 'white', textDecoration: 'none' }}>
               Acessar Painel Admin
             </Link>
           )}
@@ -561,6 +693,155 @@ function DashboardContent() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+      {/* EDIT PROFILE MODAL */}
+      {showEditProfileModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(6, 7, 13, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-6)',
+            width: '100%',
+            maxWidth: '450px',
+            position: 'relative',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+          }}>
+            <h2 style={{ fontSize: 'var(--font-xl)', fontWeight: 'bold', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="material-symbols-outlined" style={{ color: 'var(--accent-cyan)' }}>person</span>
+              Editar Perfil Acadêmico
+            </h2>
+            <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
+              Atualize suas informações abaixo. O nome digitado será o impresso oficialmente em seus certificados de conclusão.
+            </p>
+
+            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              {/* Photo Upload & Preview Group */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                {editPhotoBase64 ? (
+                  <img 
+                    src={editPhotoBase64} 
+                    alt="Preview" 
+                    style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-cyan)' }} 
+                  />
+                ) : (
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-cyan))',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '20px',
+                    fontWeight: 'bold',
+                    color: 'white',
+                    border: '2px solid var(--accent-cyan)'
+                  }}>
+                    {getInitials(editName || user.name)}
+                  </div>
+                )}
+                
+                <div style={{ flexGrow: 1 }}>
+                  <label 
+                    htmlFor="photo-upload-input" 
+                    className="btn btn-sm btn-outline" 
+                    style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '5px', 
+                      fontSize: '11px', 
+                      cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.05)',
+                      padding: '6px 12px',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>upload</span>
+                    Escolher Foto
+                  </label>
+                  <input 
+                    type="file" 
+                    id="photo-upload-input" 
+                    accept="image/*" 
+                    onChange={handleFileChange} 
+                    style={{ display: 'none' }} 
+                  />
+                  {editPhotoBase64 && (
+                    <button 
+                      type="button" 
+                      onClick={() => setEditPhotoBase64('')}
+                      style={{ 
+                        display: 'block', 
+                        background: 'none', 
+                        border: 'none', 
+                        color: '#ef4444', 
+                        fontSize: '10px', 
+                        marginTop: '6px', 
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                    >
+                      Remover foto e usar iniciais
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Name Input */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nome Completo (Certificado)</label>
+                <input 
+                  type="text" 
+                  value={editName} 
+                  onChange={(e) => setEditName(e.target.value)} 
+                  required
+                  style={{
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'white',
+                    padding: '10px 12px',
+                    fontSize: 'var(--font-sm)',
+                    outline: 'none'
+                  }}
+                  placeholder="Seu nome completo para o certificado"
+                />
+              </div>
+
+              {/* Footer Buttons */}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowEditProfileModal(false)} 
+                  disabled={savingProfile}
+                  className="btn btn-outline"
+                  style={{ padding: '8px 16px', fontSize: '12px', background: 'transparent', color: 'white', border: '1px solid var(--border-color)' }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={savingProfile}
+                  className="btn btn-primary"
+                  style={{ padding: '8px 16px', fontSize: '12px' }}
+                >
+                  {savingProfile ? 'Salvando...' : 'Salvar Alterações'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

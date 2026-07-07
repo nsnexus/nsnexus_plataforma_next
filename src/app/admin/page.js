@@ -542,7 +542,32 @@ function AdminContent() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {dbUsers.slice(0, 5).map(u => (
                         <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                          <img src={u.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop'} alt={u.name} style={{ width: '35px', height: '35px', borderRadius: '50%' }} />
+                          {u.avatar_url && !u.avatar_url.includes('unsplash.com') ? (
+                            <img src={u.avatar_url} alt={u.name} style={{ width: '35px', height: '35px', borderRadius: '50%', objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{
+                              width: '35px',
+                              height: '35px',
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-cyan))',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              color: 'white',
+                              flexShrink: 0
+                            }}>
+                              {(() => {
+                                const name = u.name || 'Estudante';
+                                const parts = name.split(' ');
+                                if (parts.length >= 2) {
+                                  return (parts[0][0] + parts[1][0]).toUpperCase();
+                                }
+                                return name.slice(0, 2).toUpperCase();
+                              })()}
+                            </div>
+                          )}
                           <div>
                             <div style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold' }}>{u.name}</div>
                             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{u.email}</div>
@@ -586,7 +611,32 @@ function AdminContent() {
                       {filteredUsers.map(u => (
                         <tr key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                           <td style={{ padding: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <img src={u.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop'} alt={u.name} style={{ width: '30px', height: '30px', borderRadius: '50%' }} />
+                            {u.avatar_url && !u.avatar_url.includes('unsplash.com') ? (
+                              <img src={u.avatar_url} alt={u.name} style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: '50%',
+                                background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-cyan))',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '10px',
+                                fontWeight: 'bold',
+                                color: 'white',
+                                flexShrink: 0
+                              }}>
+                                {(() => {
+                                  const name = u.name || 'Estudante';
+                                  const parts = name.split(' ');
+                                  if (parts.length >= 2) {
+                                    return (parts[0][0] + parts[1][0]).toUpperCase();
+                                  }
+                                  return name.slice(0, 2).toUpperCase();
+                                })()}
+                              </div>
+                            )}
                             <span>{u.name}</span>
                           </td>
                           <td style={{ padding: '15px', color: 'var(--text-secondary)' }}>{u.email}</td>
