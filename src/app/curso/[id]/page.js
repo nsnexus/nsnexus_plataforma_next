@@ -1,16 +1,20 @@
 "use client";
 export const runtime = 'edge';
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import { CountdownTimer } from '../../../components/CountdownTimer';
+import { db } from '../../../utils/firebase/client';
+import { collection, addDoc } from 'firebase/firestore';
 
 export default function CursoDetalhePage() {
   const params = useParams();
   const id = params.id;
+  const router = useRouter();
   const { user, courses } = useAuth();
   const [course, setCourse] = useState(null);
+  const [processingBuy, setProcessingBuy] = useState(false);
 
   useEffect(() => {
     if (id && courses) {
@@ -31,8 +35,83 @@ export default function CursoDetalhePage() {
   const isEnrolled = user && user.enrolledCourses && user.enrolledCourses.includes(course.id);
   const isClosed = course.isClosed;
 
-  // Syllabus calculation
-  const totalLessons = course.syllabus?.reduce((acc, mod) => acc + (mod.lessons?.length || 0), 0) || 0;
+  const handleBuyClick = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (processingBuy) return;
+
+    if (!user) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem("post_login_redirect", `/curso/${course.id}?buy=true`);
+      }
+      router.push('/login');
+      return;
+    }
+
+    setProcessingBuy(true);
+    try {
+      let checkoutUrl = course.paymentLink || '#';
+      let transactionId = 'MP-PENDING-' + Math.floor(10000000 + Math.random() * 90000000);
+
+      try {
+        const response = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            courseId: course.id,
+            courseTitle: course.title,
+            coursePrice: course.price,
+            userId: user.id,
+            userEmail: user.email
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.init_point) {
+            checkoutUrl = data.init_point;
+            const prefIdMatch = data.init_point.match(/pref_id=([^&]+)/);
+            if (prefIdMatch && prefIdMatch[1]) {
+              transactionId = 'MP-PREF-' + prefIdMatch[1];
+            }
+          }
+        }
+      } catch (apiErr) {
+        console.warn("Mercado Pago API error, falling back to static link:", apiErr);
+      }
+
+      // Save pending purchase in Firestore
+      await addDoc(collection(db, 'purchases'), {
+        user_id: user.id,
+        user_email: user.email,
+        user_name: user.name || 'Aluno',
+        course_id: course.id,
+        price_paid: course.price,
+        status: 'pending',
+        payment_id: transactionId,
+        created_at: new Date().toISOString()
+      });
+
+      // Redirect directly to Mercado Pago
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      console.error("Erro ao processar compra:", err);
+      alert("Erro ao processar compra: " + err.message);
+      setProcessingBuy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && course && user && !processingBuy) {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('buy') === 'true') {
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+        handleBuyClick();
+      }
+    }
+  }, [user, course]);
 
   return (
     <main style={{ paddingTop: '100px', minHeight: '80vh', background: 'var(--bg-primary)', color: 'white' }}>
@@ -201,13 +280,15 @@ export default function CursoDetalhePage() {
                   <span className="material-symbols-outlined" style={{ fontSize: '20px', marginRight: '5px' }}>mail</span> Solicitar Treinamento
                 </a>
               ) : (
-                <Link 
-                  href={`/checkout/${course.id}`}
+                <button 
+                  onClick={handleBuyClick}
+                  disabled={processingBuy}
                   className="btn btn-primary btn-full"
-                  style={{ justifyContent: 'center', textDecoration: 'none' }}
+                  style={{ justifyContent: 'center', cursor: 'pointer' }}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px', marginRight: '5px' }}>shopping_cart</span> Comprar
-                </Link>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', marginRight: '5px' }}>shopping_cart</span>
+                  {processingBuy ? 'Redirecionando...' : 'Comprar'}
+                </button>
               )}
 
               <div style={{ marginTop: 'var(--space-6)', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
