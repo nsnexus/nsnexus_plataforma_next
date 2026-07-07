@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 export async function POST(request) {
   try {
     const { courseId, courseTitle, coursePrice, userId, userEmail } = await request.json();
