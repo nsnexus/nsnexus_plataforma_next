@@ -1,12 +1,12 @@
 "use client";
 export const runtime = 'edge';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import { CountdownTimer } from '../../../components/CountdownTimer';
 import { db } from '../../../utils/firebase/client';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 
 export default function CursoDetalhePage() {
   const params = useParams();
@@ -16,12 +16,80 @@ export default function CursoDetalhePage() {
   const [course, setCourse] = useState(null);
   const [processingBuy, setProcessingBuy] = useState(false);
 
+  // Review states
+  const [courseReviews, setCourseReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(true);
+  const [formRating, setFormRating] = useState(5);
+  const [formComment, setFormComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const fetchReviews = async () => {
+    if (!id) return;
+    setLoadingReviews(true);
+    try {
+      const q = query(collection(db, 'reviews'), where('courseId', '==', id));
+      const querySnapshot = await getDocs(q);
+      const list = [];
+      querySnapshot.forEach((doc) => {
+        list.push({ dbId: doc.id, ...doc.data() });
+      });
+      list.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      setCourseReviews(list);
+    } catch (err) {
+      console.error("Error fetching reviews:", err);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
   useEffect(() => {
     if (id && courses) {
       const found = courses.find(c => c.id === id);
       setCourse(found);
     }
   }, [id, courses]);
+
+  useEffect(() => {
+    if (id) {
+      fetchReviews();
+    }
+  }, [id]);
+
+  const averageRating = useMemo(() => {
+    if (courseReviews.length === 0) return 4.9;
+    const total = courseReviews.reduce((acc, r) => acc + r.rating, 0);
+    return (total / courseReviews.length).toFixed(1);
+  }, [courseReviews]);
+
+  const hasUserReviewed = useMemo(() => {
+    if (!user || courseReviews.length === 0) return false;
+    return courseReviews.some(r => r.userId === user.id);
+  }, [user, courseReviews]);
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+    setSubmittingReview(true);
+    try {
+      await addDoc(collection(db, 'reviews'), {
+        userId: user.id,
+        userName: user.name || 'Aluno',
+        courseId: id,
+        rating: formRating,
+        comment: formComment,
+        created_at: new Date().toISOString()
+      });
+      alert("Avaliação enviada com sucesso!");
+      setFormComment('');
+      setFormRating(5);
+      fetchReviews();
+    } catch (err) {
+      console.error("Error submitting review:", err);
+      alert("Erro ao enviar avaliação: " + err.message);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const handleBuyClick = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -312,6 +380,127 @@ export default function CursoDetalhePage() {
             </div>
           </div>
 
+        </div>
+
+        {/* ========== AVALIAÇÕES DOS ALUNOS SECTION ========== */}
+        <div style={{ marginTop: 'var(--space-16)', borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-12)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-8)', flexWrap: 'wrap', gap: '15px' }}>
+            <div>
+              <span className="accent-gradient" style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: 'var(--font-sm)', letterSpacing: '0.05em' }}>
+                Opinião dos Estudantes
+              </span>
+              <h2 style={{ fontSize: 'var(--font-2xl)', marginTop: 'var(--space-2)' }}>Avaliações do Curso</h2>
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(15,23,42,0.6)', border: '1px solid var(--border-color)', padding: '10px 20px', borderRadius: 'var(--radius-md)' }}>
+              <span style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>
+                {averageRating}
+              </span>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', color: '#ffb000' }}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <span key={i} className="material-symbols-outlined" style={{ fontSize: '18px', fontVariationSettings: `"FILL" ${i < Math.round(averageRating) ? 1 : 0}` }}>star</span>
+                  ))}
+                </div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{courseReviews.length} avaliações</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--space-10)', alignItems: 'start' }} className="reviews-layout">
+            
+            {/* Left side: Add Review form (if completed and hasn't reviewed yet) */}
+            <div style={{ background: 'rgba(15,23,42,0.45)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
+              <h3 style={{ fontSize: 'var(--font-md)', fontWeight: 'bold', marginBottom: '15px', color: 'white' }}>Sua Avaliação</h3>
+              
+              {!user ? (
+                <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', margin: 0 }}>Faça login na plataforma para deixar sua avaliação.</p>
+              ) : !user.completedCourses?.includes(course?.id) ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '32px', textAlign: 'center' }}>🎓</span>
+                  <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', textAlign: 'center', margin: 0, lineHeight: '1.4' }}>
+                    <strong>Exclusivo para formados:</strong> Apenas alunos que completaram o curso e receberam o diploma podem deixar feedback!
+                  </p>
+                </div>
+              ) : hasUserReviewed ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center', textAlign: 'center' }}>
+                  <span style={{ fontSize: '28px', color: 'var(--accent-cyan)' }}>✓</span>
+                  <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', margin: 0 }}>
+                    Você já enviou sua avaliação para este curso. Obrigado pelo seu feedback!
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitReview} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Nota (Estrelas)</label>
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setFormRating(star)}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#ffb000' }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '28px', fontVariationSettings: `"FILL" ${star <= formRating ? 1 : 0}` }}>
+                            star
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Comentário / Opinião</label>
+                    <textarea
+                      value={formComment}
+                      onChange={(e) => setFormComment(e.target.value)}
+                      placeholder="Compartilhe sua experiência real com o curso..."
+                      required
+                      rows="3"
+                      style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontSize: 'var(--font-sm)', resize: 'vertical' }}
+                    />
+                  </div>
+
+                  <button type="submit" disabled={submittingReview} className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }}>
+                    {submittingReview ? 'Enviando...' : 'Enviar Avaliação'}
+                  </button>
+                </form>
+              )}
+            </div>
+
+            {/* Right side: List of reviews */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              {loadingReviews ? (
+                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>Carregando avaliações...</div>
+              ) : courseReviews.length > 0 ? (
+                courseReviews.map((review) => (
+                  <div key={review.dbId} style={{ background: 'rgba(15,23,42,0.3)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 'bold', fontSize: 'var(--font-sm)', color: 'white' }}>{review.userName}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {review.created_at ? new Date(review.created_at).toLocaleDateString('pt-BR') : ''}
+                      </span>
+                    </div>
+                    
+                    <div style={{ display: 'flex', color: '#ffb000' }}>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <span key={i} className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: `"FILL" ${i < review.rating ? 1 : 0}` }}>star</span>
+                      ))}
+                    </div>
+
+                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', margin: 0, lineHeight: 1.5 }}>
+                      {review.comment}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div style={{ background: 'rgba(15,23,42,0.2)', border: '1px dotted var(--border-color)', borderRadius: 'var(--radius-md)', padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--font-sm)' }}>
+                  Ainda não há avaliações de alunos formados para este curso. Seja o primeiro!
+                </div>
+              )}
+            </div>
+
+          </div>
         </div>
 
       </section>
