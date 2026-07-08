@@ -4,6 +4,27 @@ import Link from 'next/link';
 import { COURSES_DATA, SERVICES_DATA, TESTIMONIALS_DATA } from '../data/platformData';
 import { CourseCard } from '../components/CourseCard';
 import { ServiceCard } from '../components/ServiceCard';
+import { db } from '../utils/firebase/client';
+import { collection, getDocs, query, orderBy, addDoc } from 'firebase/firestore';
+
+function getVideoEmbedUrl(url) {
+  if (!url) return '';
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    const videoId = (match && match[2].length === 11) ? match[2] : null;
+    return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=1&modestbranding=1&rel=0` : url;
+  }
+  if (url.includes('vimeo.com')) {
+    const match = url.match(/vimeo\.com\/(\d+)/);
+    const videoId = match ? match[1] : null;
+    return videoId ? `https://player.vimeo.com/video/${videoId}?autoplay=1` : url;
+  }
+  if (url.includes('panda.video') || url.includes('pandasplay.com')) {
+    return url;
+  }
+  return url;
+}
 
 const SHOWCASE_PROJECTS = [
   {
@@ -14,8 +35,9 @@ const SHOWCASE_PROJECTS = [
     desc: "Substituição completa do Power Apps. Portal de controle operacional leve integrado nativamente no SharePoint Online.",
     metricIcon: "speed",
     metricLabel: "Carregamento instantâneo (< 1s)",
-    mediaUrl: "/images/sharepoint.jpeg",
-    isStatic: true
+    coverUrl: "/images/sharepoint.jpeg",
+    mediaUrl: "https://assets.mixkit.co/videos/preview/mixkit-code-on-a-computer-screen-close-up-3032-large.mp4",
+    isStatic: false
   },
   {
     id: "proj-2",
@@ -25,8 +47,9 @@ const SHOWCASE_PROJECTS = [
     desc: "Dashboard integrado para registro e monitoramento de Kaizens em tempo real, sincronizado de forma automática via SharePoint.",
     metricIcon: "trending_up",
     metricLabel: "Gestão visual de melhorias",
-    mediaUrl: "/images/kaizen.png",
-    isStatic: true
+    coverUrl: "/images/kaizen.png",
+    mediaUrl: "https://assets.mixkit.co/videos/preview/mixkit-code-on-a-computer-screen-close-up-3032-large.mp4",
+    isStatic: false
   },
   {
     id: "proj-3",
@@ -36,8 +59,9 @@ const SHOWCASE_PROJECTS = [
     desc: "Plataforma de avaliações corporativas integrada ao SharePoint, gerando histórico de notas com painel administrativo para edição.",
     metricIcon: "quiz",
     metricLabel: "Correção automática e relatórios",
-    mediaUrl: "/images/proativo.jpeg",
-    isStatic: true
+    coverUrl: "/images/proativo.jpeg",
+    mediaUrl: "https://assets.mixkit.co/videos/preview/mixkit-code-on-a-computer-screen-close-up-3032-large.mp4",
+    isStatic: false
   },
   {
     id: "proj-4",
@@ -47,8 +71,9 @@ const SHOWCASE_PROJECTS = [
     desc: "Sistema estilo SaaS para gestão da rotina industrial (retífica, usinagem e mecânica) com cadastro operacional e painel financeiro.",
     metricIcon: "precision_manufacturing",
     metricLabel: "Faturamento e controle industrial",
-    mediaUrl: "/images/powerapps.jpeg",
-    isStatic: true
+    coverUrl: "/images/powerapps.jpeg",
+    mediaUrl: "https://assets.mixkit.co/videos/preview/mixkit-code-on-a-computer-screen-close-up-3032-large.mp4",
+    isStatic: false
   },
   {
     id: "proj-5",
@@ -58,8 +83,9 @@ const SHOWCASE_PROJECTS = [
     desc: "Site imobiliário moderno de alta conversão com catálogo de imóveis interativo, filtros de busca avançados e contato via WhatsApp.",
     metricIcon: "home",
     metricLabel: "Integração direta com WhatsApp",
-    mediaUrl: "/images/whatsapp.jpeg",
-    isStatic: true
+    coverUrl: "/images/whatsapp.jpeg",
+    mediaUrl: "https://assets.mixkit.co/videos/preview/mixkit-code-on-a-computer-screen-close-up-3032-large.mp4",
+    isStatic: false
   },
   {
     id: "proj-6",
@@ -69,8 +95,9 @@ const SHOWCASE_PROJECTS = [
     desc: "Cardápio interativo e landing page otimizada de delivery para pizzaria, com fechamento de pedidos direto para o WhatsApp comercial.",
     metricIcon: "restaurant",
     metricLabel: "Pedidos e taxas automatizadas",
-    mediaUrl: "/images/powerautomate.jpeg",
-    isStatic: true
+    coverUrl: "/images/powerautomate.jpeg",
+    mediaUrl: "https://assets.mixkit.co/videos/preview/mixkit-code-on-a-computer-screen-close-up-3032-large.mp4",
+    isStatic: false
   },
   {
     id: "proj-7",
@@ -80,6 +107,7 @@ const SHOWCASE_PROJECTS = [
     desc: "Aplicativo gamificado para incentivo a tarefas diárias de saúde física e mental das equipes da Aura.",
     metricIcon: "volunteer_activism",
     metricLabel: "Engajamento e bem-estar",
+    coverUrl: "/images/viva.jpeg",
     mediaUrl: "/images/viva.jpeg",
     isStatic: true
   },
@@ -91,6 +119,7 @@ const SHOWCASE_PROJECTS = [
     desc: "Aplicativo de check-in e check-out de frotas com câmera integrada para controle de danos físicos de veículos da Autonova.",
     metricIcon: "directions_car",
     metricLabel: "Laudo com foto e assinatura digital",
+    coverUrl: "/images/autonova.png",
     mediaUrl: "/images/autonova.png",
     isStatic: true
   },
@@ -102,14 +131,64 @@ const SHOWCASE_PROJECTS = [
     desc: "Preenchimento e painel de estado emocional diário das equipes da Geralogística para monitorar clima.",
     metricIcon: "mood",
     metricLabel: "Acompanhamento preventivo de clima",
+    coverUrl: "/images/comoestou.jpeg",
     mediaUrl: "/images/comoestou.jpeg",
     isStatic: true
   }
 ];
 
 export default function Home() {
+  const [projects, setProjects] = useState([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
   const [modalVideo, setModalVideo] = useState(null);
   const [modalTitle, setModalTitle] = useState('');
+
+  useEffect(() => {
+    const loadProjects = async () => {
+      setLoadingProjects(true);
+      try {
+        const projectsRef = collection(db, 'projects');
+        const q = query(projectsRef, orderBy('order', 'asc'));
+        const querySnapshot = await getDocs(q);
+        const list = [];
+        querySnapshot.forEach((doc) => {
+          list.push({ dbId: doc.id, ...doc.data() });
+        });
+
+        if (list.length > 0) {
+          setProjects(list);
+        } else {
+          console.log("Projects collection empty, populating initial data...");
+          const saved = [];
+          for (let i = 0; i < SHOWCASE_PROJECTS.length; i++) {
+            const p = SHOWCASE_PROJECTS[i];
+            const data = {
+              id: p.id,
+              title: p.title,
+              type: p.type,
+              badge: p.badge,
+              desc: p.desc,
+              metricIcon: p.metricIcon,
+              metricLabel: p.metricLabel,
+              coverUrl: p.coverUrl,
+              mediaUrl: p.mediaUrl,
+              isStatic: p.isStatic,
+              order: i
+            };
+            const docRef = await addDoc(collection(db, 'projects'), data);
+            saved.push({ dbId: docRef.id, ...data });
+          }
+          setProjects(saved);
+        }
+      } catch (err) {
+        console.error("Error loading projects from Firestore:", err);
+        setProjects(SHOWCASE_PROJECTS);
+      } finally {
+        setLoadingProjects(false);
+      }
+    };
+    loadProjects();
+  }, []);
   
   // Selected testimonials display
   const [isMobile, setIsMobile] = useState(false);
@@ -540,23 +619,24 @@ export default function Home() {
 
         {/* Portfolio Grid Layout */}
         <div className="card-grid">
-          {SHOWCASE_PROJECTS.map(proj => (
+          {loadingProjects ? (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
+              <div className="spinner" style={{ border: '4px solid rgba(255,255,255,0.1)', width: '30px', height: '30px', borderRadius: '50%', borderLeftColor: 'var(--accent-cyan)', animation: 'spin 1s linear infinite', margin: '0 auto 15px auto' }}></div>
+              Carregando projetos do portfólio...
+            </div>
+          ) : projects.map(proj => (
             <div 
-              key={proj.id} 
+              key={proj.id || proj.dbId} 
               className={`showcase-card ${!proj.isStatic ? 'showcase-card--video' : ''}`}
               onClick={() => !proj.isStatic && openVideo(proj.mediaUrl, proj.title)}
               style={{ cursor: proj.isStatic ? 'default' : 'pointer' }}
             >
               <div className="showcase-card__img-wrapper">
-                {proj.isStatic ? (
-                  <img src={proj.mediaUrl} alt={proj.title} />
-                ) : (
-                  <>
-                    <video src={proj.mediaUrl} muted loop playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <div className="showcase-card__play-btn">
-                      <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>play_arrow</span>
-                    </div>
-                  </>
+                <img src={proj.coverUrl || proj.mediaUrl} alt={proj.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {!proj.isStatic && (
+                  <div className="showcase-card__play-btn">
+                    <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>play_arrow</span>
+                  </div>
                 )}
               </div>
               <span className={`showcase-card__badge showcase-card__badge--${proj.type}`}>
@@ -565,7 +645,7 @@ export default function Home() {
               <h3 className="showcase-card__title">{proj.title}</h3>
               <p className="showcase-card__desc">{proj.desc}</p>
               <div className="showcase-card__metric">
-                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{proj.metricIcon}</span>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{proj.metricIcon || 'trending_up'}</span>
                 <span>{proj.metricLabel}</span>
               </div>
             </div>
@@ -664,7 +744,16 @@ export default function Home() {
             </button>
             <div className="video-modal__body" id="video-modal-body">
               <h3 style={{ marginBottom: '15px', color: 'white' }}>{modalTitle}</h3>
-              <video src={modalVideo} controls autoPlay style={{ width: '100%', borderRadius: '8px' }}></video>
+              {modalVideo.includes('youtube.com') || modalVideo.includes('youtu.be') || modalVideo.includes('vimeo.com') || modalVideo.includes('panda.video') || modalVideo.includes('pandasplay.com') ? (
+                <iframe 
+                  src={getVideoEmbedUrl(modalVideo)} 
+                  style={{ width: '100%', height: '450px', borderRadius: '8px', border: 'none' }} 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowFullScreen 
+                />
+              ) : (
+                <video src={modalVideo} controls autoPlay style={{ width: '100%', borderRadius: '8px' }}></video>
+              )}
             </div>
           </div>
         </div>

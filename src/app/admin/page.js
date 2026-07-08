@@ -17,7 +17,25 @@ function AdminContent() {
   // Database lists
   const [dbUsers, setDbUsers] = useState([]);
   const [dbPurchases, setDbPurchases] = useState([]);
+  const [dbProjects, setDbProjects] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+
+  // Portfolio CRUD state
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
+  const [savingProject, setSavingProject] = useState(false);
+  const [projectForm, setProjectForm] = useState({
+    id: '',
+    title: '',
+    type: 'sharepoint',
+    badge: 'SharePoint & HTML/JS',
+    desc: '',
+    metricIcon: 'speed',
+    metricLabel: '',
+    coverUrl: '/images/sharepoint.jpeg',
+    mediaUrl: '',
+    isStatic: true
+  });
 
   // Search and Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -85,6 +103,19 @@ function AdminContent() {
       });
       purchases.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
       setDbPurchases(purchases);
+
+      // 3. Fetch projects
+      const projectsRef = collection(db, 'projects');
+      const projectsSnap = await getDocs(projectsRef);
+      const projectsList = [];
+      projectsSnap.forEach((doc) => {
+        projectsList.push({
+          dbId: doc.id,
+          ...doc.data()
+        });
+      });
+      projectsList.sort((a, b) => (a.order || 0) - (b.order || 0));
+      setDbProjects(projectsList);
 
     } catch (err) {
       console.error('[Admin] Erro ao carregar dados:', err);
@@ -380,6 +411,95 @@ function AdminContent() {
     }
   };
 
+  // Portfolio CRUD handlers
+  const handleOpenAddProject = () => {
+    setEditingProject(null);
+    setProjectForm({
+      id: 'proj-' + Math.floor(1000 + Math.random() * 9000),
+      title: '',
+      type: 'sharepoint',
+      badge: 'SharePoint & HTML/JS',
+      desc: '',
+      metricIcon: 'speed',
+      metricLabel: '',
+      coverUrl: '/images/sharepoint.jpeg',
+      mediaUrl: '',
+      isStatic: true
+    });
+    setShowProjectModal(true);
+  };
+
+  const handleOpenEditProject = (proj) => {
+    setEditingProject(proj);
+    setProjectForm({
+      id: proj.id || '',
+      title: proj.title || '',
+      type: proj.type || 'sharepoint',
+      badge: proj.badge || '',
+      desc: proj.desc || '',
+      metricIcon: proj.metricIcon || 'speed',
+      metricLabel: proj.metricLabel || '',
+      coverUrl: proj.coverUrl || '',
+      mediaUrl: proj.mediaUrl || '',
+      isStatic: !!proj.isStatic
+    });
+    setShowProjectModal(true);
+  };
+
+  const handleSaveProject = async (e) => {
+    e.preventDefault();
+    if (!projectForm.id || !projectForm.title) {
+      alert("ID e Título são obrigatórios.");
+      return;
+    }
+    setSavingProject(true);
+    try {
+      const data = {
+        id: projectForm.id.trim(),
+        title: projectForm.title,
+        type: projectForm.type,
+        badge: projectForm.badge,
+        desc: projectForm.desc,
+        metricIcon: projectForm.metricIcon,
+        metricLabel: projectForm.metricLabel,
+        coverUrl: projectForm.coverUrl,
+        mediaUrl: projectForm.mediaUrl,
+        isStatic: projectForm.isStatic,
+        order: editingProject ? (editingProject.order ?? 0) : dbProjects.length
+      };
+
+      if (editingProject) {
+        // Update
+        const projectRef = doc(db, 'projects', editingProject.dbId);
+        await setDoc(projectRef, data, { merge: true });
+        alert("Projeto atualizado com sucesso!");
+      } else {
+        // Insert
+        await addDoc(collection(db, 'projects'), data);
+        alert("Projeto cadastrado com sucesso!");
+      }
+      setShowProjectModal(false);
+      loadData();
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao salvar projeto: " + err.message);
+    } finally {
+      setSavingProject(false);
+    }
+  };
+
+  const handleDeleteProject = async (projDbId) => {
+    if (!window.confirm("Deseja realmente excluir este projeto de forma permanente?")) return;
+    try {
+      await deleteDoc(doc(db, 'projects', projDbId));
+      alert("Projeto excluído com sucesso!");
+      loadData();
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao excluir projeto: " + err.message);
+    }
+  };
+
   return (
     <div className="admin-body-override" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'white' }}>
       
@@ -423,6 +543,13 @@ function AdminContent() {
           >
             <span className="nav-icon">📦</span>
             <span>Produtos ({courses.length})</span>
+          </button>
+          <button 
+            className={`nav-item ${activeSection === 'portfolio' ? 'active' : ''}`} 
+            onClick={() => { setActiveSection('portfolio'); setSidebarOpen(false); }}
+          >
+            <span className="nav-icon">📁</span>
+            <span>Portfólio ({dbProjects.length})</span>
           </button>
         </nav>
 
@@ -853,6 +980,83 @@ function AdminContent() {
                 </div>
               </section>
             )}
+
+            {/* ========== SECTION: PORTFOLIO (PROJECTS CRUD) ========== */}
+            {activeSection === 'portfolio' && (
+              <section className="admin-section active">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
+                  <div>
+                    <h1 className="section-title" style={{ fontSize: 'var(--font-2xl)', fontWeight: 'bold' }}>Projetos do Portfólio</h1>
+                    <p className="section-subtitle" style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)' }}>Gerenciamento dinâmico dos cases de sucesso na página inicial</p>
+                  </div>
+                  
+                  <button className="btn btn-primary btn-sm" onClick={handleOpenAddProject}>
+                    + Novo Projeto
+                  </button>
+                </div>
+
+                <div className="table-responsive" style={{ background: 'rgba(15,23,42,0.45)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', overflowX: 'auto' }}>
+                  <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 'var(--font-sm)' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid var(--border-color)' }}>
+                        <th style={{ padding: '15px' }}>Capa</th>
+                        <th style={{ padding: '15px' }}>ID</th>
+                        <th style={{ padding: '15px' }}>Título</th>
+                        <th style={{ padding: '15px' }}>Badge/Tech</th>
+                        <th style={{ padding: '15px' }}>Tipo Mídia</th>
+                        <th style={{ padding: '15px' }}>Métrica</th>
+                        <th style={{ padding: '15px', textAlign: 'center' }}>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dbProjects.map(proj => (
+                        <tr key={proj.id || proj.dbId} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                          <td style={{ padding: '15px' }}>
+                            <img src={proj.coverUrl || proj.mediaUrl} alt={proj.title} style={{ width: '50px', height: '30px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }} onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100'; }} />
+                          </td>
+                          <td style={{ padding: '15px', fontFamily: 'monospace', color: 'var(--text-muted)' }}>{proj.id}</td>
+                          <td style={{ padding: '15px', fontWeight: 'bold' }}>{proj.title}</td>
+                          <td style={{ padding: '15px' }}>
+                            <span className="badge" style={{ fontSize: '10px', background: 'rgba(0,245,212,0.1)', color: 'var(--accent-cyan)', border: '1px solid rgba(0,245,212,0.2)', padding: '2px 6px', borderRadius: '4px' }}>
+                              {proj.badge}
+                            </span>
+                          </td>
+                          <td style={{ padding: '15px' }}>
+                            {proj.isStatic ? '📷 Imagem' : '🎥 Vídeo'}
+                          </td>
+                          <td style={{ padding: '15px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            <span style={{ marginRight: '5px' }}>{proj.metricIcon}</span> {proj.metricLabel}
+                          </td>
+                          <td style={{ padding: '15px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                              <button 
+                                onClick={() => handleOpenEditProject(proj)} 
+                                className="btn btn-sm btn-outline"
+                                style={{ padding: '4px 10px', fontSize: '10px' }}
+                              >
+                                Editar
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteProject(proj.dbId)} 
+                                className="btn btn-sm btn-outline"
+                                style={{ padding: '4px 10px', fontSize: '10px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.05)' }}
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {dbProjects.length === 0 && (
+                        <tr>
+                          <td colSpan="7" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum projeto cadastrado no portfólio.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
           </>
         )}
 
@@ -1122,6 +1326,166 @@ function AdminContent() {
                 <button type="button" className="btn btn-outline" onClick={() => setShowCourseModal(false)}>Cancelar</button>
                 <button type="submit" disabled={savingCourse} className="btn btn-primary">
                   {savingCourse ? 'Salvando...' : 'Salvar Produto'}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========== MODAL: PORTFOLIO PROJECT CRUD ========== */}
+      {showProjectModal && (
+        <div className="video-modal video-modal--active" onClick={() => setShowProjectModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)' }}>
+          <div className="video-modal__content animate-fade-in-up" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '650px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', padding: '25px', borderRadius: '8px', overflowY: 'auto', maxHeight: '90vh' }}>
+            <button className="video-modal__close" onClick={() => setShowProjectModal(false)} style={{ cursor: 'pointer' }}>&times;</button>
+            <h2 style={{ fontSize: 'var(--font-xl)', color: 'white', marginBottom: '15px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+              {editingProject ? 'Editar Case de Portfólio' : 'Adicionar Novo Case de Portfólio'}
+            </h2>
+            <form onSubmit={handleSaveProject} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>ID Único do Projeto</label>
+                  <input 
+                    type="text" 
+                    value={projectForm.id}
+                    onChange={(e) => setProjectForm({ ...projectForm, id: e.target.value })}
+                    placeholder="proj-novo"
+                    disabled={!!editingProject}
+                    required
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  />
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Título do Projeto</label>
+                  <input 
+                    type="text" 
+                    value={projectForm.title}
+                    onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })}
+                    placeholder="ex: Portal de Gestão Operacional"
+                    required
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Categoria (Tipo)</label>
+                  <select 
+                    value={projectForm.type}
+                    onChange={(e) => setProjectForm({ ...projectForm, type: e.target.value })}
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  >
+                    <option value="sharepoint">SharePoint</option>
+                    <option value="web">Sistemas Web</option>
+                    <option value="powerapps">Power Apps</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Badge / Tecnologias (Texto)</label>
+                  <input 
+                    type="text" 
+                    value={projectForm.badge}
+                    onChange={(e) => setProjectForm({ ...projectForm, badge: e.target.value })}
+                    placeholder="ex: SharePoint & HTML/JS"
+                    required
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Descrição Completa</label>
+                <textarea 
+                  value={projectForm.desc}
+                  onChange={(e) => setProjectForm({ ...projectForm, desc: e.target.value })}
+                  placeholder="Descreva brevemente o projeto e os problemas resolvidos..."
+                  required
+                  rows="3"
+                  style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Ícone da Métrica (Material Symbol)</label>
+                  <select 
+                    value={projectForm.metricIcon}
+                    onChange={(e) => setProjectForm({ ...projectForm, metricIcon: e.target.value })}
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  >
+                    <option value="speed">⚡ Velocidade (speed)</option>
+                    <option value="trending_up">📈 Crescimento (trending_up)</option>
+                    <option value="quiz">📝 Avaliação (quiz)</option>
+                    <option value="home">🏠 Imobiliária (home)</option>
+                    <option value="restaurant">🍕 Alimentação (restaurant)</option>
+                    <option value="volunteer_activism">❤️ Saúde (volunteer_activism)</option>
+                    <option value="directions_car">🚗 Carro (directions_car)</option>
+                    <option value="mood">😊 Clima (mood)</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Texto da Métrica (Resultado)</label>
+                  <input 
+                    type="text" 
+                    value={projectForm.metricLabel}
+                    onChange={(e) => setProjectForm({ ...projectForm, metricLabel: e.target.value })}
+                    placeholder="ex: Redução de 80% do tempo"
+                    required
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Tipo de Mídia Principal</label>
+                  <select 
+                    value={projectForm.isStatic ? 'image' : 'video'}
+                    onChange={(e) => setProjectForm({ ...projectForm, isStatic: e.target.value === 'image' })}
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  >
+                    <option value="image">📷 Apenas Imagem Estática (Sem Vídeo)</option>
+                    <option value="video">🎥 Vídeo Demonstrativo (YouTube, Vimeo, Panda)</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Imagem de Capa (Caminho ou URL)</label>
+                  <input 
+                    type="text" 
+                    value={projectForm.coverUrl}
+                    onChange={(e) => setProjectForm({ ...projectForm, coverUrl: e.target.value })}
+                    placeholder="ex: /images/sharepoint.jpeg"
+                    required
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  />
+                </div>
+              </div>
+
+              {!projectForm.isStatic && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>URL do Vídeo (YouTube, Vimeo, Panda)</label>
+                  <input 
+                    type="text" 
+                    value={projectForm.mediaUrl}
+                    onChange={(e) => setProjectForm({ ...projectForm, mediaUrl: e.target.value })}
+                    placeholder="ex: https://www.youtube.com/watch?v=..."
+                    required={!projectForm.isStatic}
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  />
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '15px' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowProjectModal(false)}>Cancelar</button>
+                <button type="submit" disabled={savingProject} className="btn btn-primary">
+                  {savingProject ? 'Salvando...' : 'Salvar Case'}
                 </button>
               </div>
 
