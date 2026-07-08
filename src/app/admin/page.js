@@ -1475,7 +1475,7 @@ function AdminContent() {
                     value={projectForm.coverUrl}
                     onChange={(e) => setProjectForm({ ...projectForm, coverUrl: e.target.value })}
                     placeholder="ex: /images/sharepoint.jpeg"
-                    required
+                    required={projectForm.isStatic}
                     style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
                   />
                 </div>
