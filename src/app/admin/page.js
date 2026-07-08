@@ -465,7 +465,7 @@ function AdminContent() {
         {loadingData ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50vh', gap: '15px' }}>
             <div className="spinner" style={{ border: '4px solid rgba(255,255,255,0.1)', width: '40px', height: '40px', borderRadius: '50%', borderLeftColor: 'var(--accent-cyan)', animation: 'spin 1s linear infinite' }}></div>
-            <p style={{ color: 'var(--text-secondary)' }}>Carregando dados reais do Supabase...</p>
+            <p style={{ color: 'var(--text-secondary)' }}>Carregando dados reais do Firebase...</p>
           </div>
         ) : (
           <>
