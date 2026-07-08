@@ -745,12 +745,18 @@ export default function Home() {
             <div className="video-modal__body" id="video-modal-body">
               <h3 style={{ marginBottom: '15px', color: 'white' }}>{modalTitle}</h3>
               {modalVideo.includes('youtube.com') || modalVideo.includes('youtu.be') || modalVideo.includes('vimeo.com') || modalVideo.includes('panda.video') || modalVideo.includes('pandasplay.com') ? (
-                <iframe 
-                  src={getVideoEmbedUrl(modalVideo)} 
-                  style={{ width: '100%', height: '450px', borderRadius: '8px', border: 'none' }} 
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                  allowFullScreen 
-                />
+                <div style={{ position: 'relative', width: '100%', height: '450px', overflow: 'hidden', borderRadius: '8px' }}>
+                  <iframe 
+                    src={getVideoEmbedUrl(modalVideo)} 
+                    style={{ width: '100%', height: '100%', border: 'none' }} 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowFullScreen 
+                  />
+                  {/* Top overlay to block channel name & share button clicks */}
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '60px', zIndex: 10, background: 'transparent', cursor: 'default' }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                  {/* Bottom-right overlay to block watch on YouTube clicks */}
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '150px', height: '60px', zIndex: 10, background: 'transparent', cursor: 'default' }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                </div>
               ) : (
                 <video src={modalVideo} controls autoPlay style={{ width: '100%', borderRadius: '8px' }}></video>
               )}

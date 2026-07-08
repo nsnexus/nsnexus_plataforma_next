@@ -6,6 +6,25 @@ import Link from 'next/link';
 import { useAuth } from '../../../../context/AuthContext';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 
+function getVideoEmbedUrl(url) {
+  if (!url) return '';
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    const videoId = (match && match[2].length === 11) ? match[2] : null;
+    return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1` : url;
+  }
+  if (url.includes('vimeo.com')) {
+    const match = url.match(/vimeo\.com\/(\d+)/);
+    const videoId = match ? match[1] : null;
+    return videoId ? `https://player.vimeo.com/video/${videoId}?autoplay=1` : url;
+  }
+  if (url.includes('panda.video') || url.includes('pandasplay.com')) {
+    return url;
+  }
+  return url;
+}
+
 function PlayerContent() {
   const params = useParams();
   const { courseId, lessonId } = params;
@@ -591,13 +610,28 @@ function PlayerContent() {
 
             </div>
           ) : (
-            <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-              <video 
-                src="https://assets.mixkit.co/videos/preview/mixkit-code-on-a-computer-screen-close-up-3032-large.mp4" 
-                controls 
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                poster="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1280&auto=format&fit=crop"
-              />
+            <div style={{ width: '100%', height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}>
+              {activeLesson.url && (activeLesson.url.includes('youtube.com') || activeLesson.url.includes('youtu.be') || activeLesson.url.includes('vimeo.com') || activeLesson.url.includes('panda.video') || activeLesson.url.includes('pandasplay.com')) ? (
+                <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+                  <iframe 
+                    src={getVideoEmbedUrl(activeLesson.url)} 
+                    style={{ width: '100%', height: '100%', border: 'none' }} 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowFullScreen 
+                  />
+                  {/* Top overlay to block channel name & share button clicks */}
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '60px', zIndex: 10, background: 'transparent', cursor: 'default' }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                  {/* Bottom-right overlay to block watch on YouTube clicks */}
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '150px', height: '60px', zIndex: 10, background: 'transparent', cursor: 'default' }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                </div>
+              ) : (
+                <video 
+                  src={activeLesson.url || "https://assets.mixkit.co/videos/preview/mixkit-code-on-a-computer-screen-close-up-3032-large.mp4"} 
+                  controls 
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  poster="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1280&auto=format&fit=crop"
+                />
+              )}
             </div>
           )}
         </div>
