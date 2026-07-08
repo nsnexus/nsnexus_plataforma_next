@@ -14,8 +14,8 @@ const SHOWCASE_PROJECTS = [
     desc: "Substituição completa do Power Apps. Portal de controle operacional leve integrado nativamente no SharePoint Online.",
     metricIcon: "speed",
     metricLabel: "Carregamento instantâneo (< 1s)",
-    mediaUrl: "/videos/ans_digital.mp4",
-    isClosed: false
+    mediaUrl: "/images/sharepoint.jpeg",
+    isStatic: true
   },
   {
     id: "proj-2",
@@ -25,8 +25,8 @@ const SHOWCASE_PROJECTS = [
     desc: "Dashboard integrado para registro e monitoramento de Kaizens em tempo real, sincronizado de forma automática via SharePoint.",
     metricIcon: "trending_up",
     metricLabel: "Gestão visual de melhorias",
-    mediaUrl: "/videos/kaizen.mp4",
-    isClosed: false
+    mediaUrl: "/images/kaizen.png",
+    isStatic: true
   },
   {
     id: "proj-3",
@@ -36,8 +36,8 @@ const SHOWCASE_PROJECTS = [
     desc: "Plataforma de avaliações corporativas integrada ao SharePoint, gerando histórico de notas com painel administrativo para edição.",
     metricIcon: "quiz",
     metricLabel: "Correção automática e relatórios",
-    mediaUrl: "/videos/provas_dbu.mp4",
-    isClosed: false
+    mediaUrl: "/images/proativo.jpeg",
+    isStatic: true
   },
   {
     id: "proj-4",
@@ -47,8 +47,8 @@ const SHOWCASE_PROJECTS = [
     desc: "Sistema estilo SaaS para gestão da rotina industrial (retífica, usinagem e mecânica) com cadastro operacional e painel financeiro.",
     metricIcon: "precision_manufacturing",
     metricLabel: "Faturamento e controle industrial",
-    mediaUrl: "/videos/pernambucana.mp4",
-    isClosed: false
+    mediaUrl: "/images/powerapps.jpeg",
+    isStatic: true
   },
   {
     id: "proj-5",
@@ -58,8 +58,8 @@ const SHOWCASE_PROJECTS = [
     desc: "Site imobiliário moderno de alta conversão com catálogo de imóveis interativo, filtros de busca avançados e contato via WhatsApp.",
     metricIcon: "home",
     metricLabel: "Integração direta com WhatsApp",
-    mediaUrl: "/videos/imobiliaria.mp4",
-    isClosed: false
+    mediaUrl: "/images/whatsapp.jpeg",
+    isStatic: true
   },
   {
     id: "proj-6",
@@ -69,8 +69,8 @@ const SHOWCASE_PROJECTS = [
     desc: "Cardápio interativo e landing page otimizada de delivery para pizzaria, com fechamento de pedidos direto para o WhatsApp comercial.",
     metricIcon: "restaurant",
     metricLabel: "Pedidos e taxas automatizadas",
-    mediaUrl: "/videos/pizzaria.mp4",
-    isClosed: false
+    mediaUrl: "/images/powerautomate.jpeg",
+    isStatic: true
   },
   {
     id: "proj-7",
