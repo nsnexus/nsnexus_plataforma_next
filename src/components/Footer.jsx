@@ -15,9 +15,9 @@ export const Footer = () => {
               NSNexus é a plataforma corporativa criada por especialistas para capacitar profissionais de negócio nas ferramentas que movem o mercado moderno.
             </p>
             <div className="footer__socials">
-              <a href="#" className="footer__social-link" aria-label="LinkedIn">in</a>
-              <a href="#" className="footer__social-link" aria-label="YouTube">YT</a>
-              <a href="#" className="footer__social-link" aria-label="Instagram">IG</a>
+              <a href="https://www.linkedin.com/company/nsnexus-tech/about/?viewAsMember=true" target="_blank" rel="noopener noreferrer" className="footer__social-link" aria-label="LinkedIn">in</a>
+              <a href="https://www.youtube.com/channel/UCR2IZO34GezQ5uM_QU6whKg" target="_blank" rel="noopener noreferrer" className="footer__social-link" aria-label="YouTube">YT</a>
+              <a href="https://www.instagram.com/nsnexustech" target="_blank" rel="noopener noreferrer" className="footer__social-link" aria-label="Instagram">IG</a>
             </div>
           </div>
           
