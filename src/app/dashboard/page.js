@@ -17,6 +17,15 @@ function DashboardContent() {
   const [editPhotoBase64, setEditPhotoBase64] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
+  useEffect(() => {
+    if (selectedCertificateCourse) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedCertificateCourse]);
+
   const getInitials = (name) => {
     if (!name) return 'EX';
     const parts = name.split(' ');
@@ -520,38 +529,56 @@ function DashboardContent() {
 
       </section>
 
-      {/* Styles inline para impressão do certificado */}
       <style>{`
         @media print {
+          @page {
+            size: A4 landscape;
+            margin: 0;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 297mm !important;
+            height: 210mm !important;
+            background: #ffffff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           body * {
             visibility: hidden !important;
+          }
+          .print-modal-overlay {
+            visibility: visible !important;
+            background: #ffffff !important;
+            position: absolute !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 297mm !important;
+            height: 210mm !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 99999 !important;
           }
           .print-certificate-container, .print-certificate-container * {
             visibility: visible !important;
           }
           .print-certificate-container {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
+            position: relative !important;
+            width: 297mm !important;
+            height: 210mm !important;
             max-width: 100% !important;
-            padding: 0 !important;
+            padding: 20mm !important;
             margin: 0 !important;
             box-shadow: none !important;
-            background: white !important;
+            background: #ffffff !important;
             border: none !important;
+            box-sizing: border-box !important;
           }
           .no-print {
             display: none !important;
-          }
-          .print-modal-overlay {
-            background: white !important;
-            position: absolute !important;
-            padding: 0 !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
           }
         }
       `}</style>
