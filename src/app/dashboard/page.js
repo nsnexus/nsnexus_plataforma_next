@@ -15,6 +15,7 @@ function DashboardContent() {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhotoBase64, setEditPhotoBase64] = useState('');
+  const [editCargo, setEditCargo] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ function DashboardContent() {
   const handleOpenEditProfile = () => {
     setEditName(user.name || '');
     setEditPhotoBase64(user.avatar_url && !user.avatar_url.includes('unsplash.com') ? user.avatar_url : '');
+    setEditCargo(user.cargo || '');
     setShowEditProfileModal(true);
   };
 
@@ -97,7 +99,8 @@ function DashboardContent() {
       const profileRef = doc(db, 'profiles', user.id);
       await updateDoc(profileRef, {
         name: editName.trim(),
-        avatar_url: editPhotoBase64
+        avatar_url: editPhotoBase64,
+        cargo: editCargo.trim()
       });
 
       await reloadUser();
@@ -845,6 +848,26 @@ function DashboardContent() {
                     outline: 'none'
                   }}
                   placeholder="Seu nome completo para o certificado"
+                />
+              </div>
+
+              {/* Cargo / Profissão Input */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cargo / Profissão</label>
+                <input 
+                  type="text" 
+                  value={editCargo} 
+                  onChange={(e) => setEditCargo(e.target.value)} 
+                  style={{
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'white',
+                    padding: '10px 12px',
+                    fontSize: 'var(--font-sm)',
+                    outline: 'none'
+                  }}
+                  placeholder="ex: Analista de BI / Gerente de TI / Estudante"
                 />
               </div>
 

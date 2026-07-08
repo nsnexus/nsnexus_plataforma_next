@@ -74,6 +74,7 @@ export default function CursoDetalhePage() {
       await addDoc(collection(db, 'reviews'), {
         userId: user.id,
         userName: user.name || 'Aluno',
+        userCargo: user.cargo || '',
         courseId: id,
         rating: formRating,
         comment: formComment,
@@ -476,7 +477,14 @@ export default function CursoDetalhePage() {
                 courseReviews.map((review) => (
                   <div key={review.dbId} style={{ background: 'rgba(15,23,42,0.3)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 'bold', fontSize: 'var(--font-sm)', color: 'white' }}>{review.userName}</span>
+                      <span style={{ fontWeight: 'bold', fontSize: 'var(--font-sm)', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        {review.userName}
+                        {review.userCargo && (
+                          <span style={{ fontWeight: 'normal', color: 'var(--text-muted)', fontSize: 'var(--font-xs)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            {review.userCargo}
+                          </span>
+                        )}
+                      </span>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                         {review.created_at ? new Date(review.created_at).toLocaleDateString('pt-BR') : ''}
                       </span>
