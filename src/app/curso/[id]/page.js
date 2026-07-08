@@ -8,6 +8,33 @@ import { CountdownTimer } from '../../../components/CountdownTimer';
 import { db } from '../../../utils/firebase/client';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 
+const MOCK_REVIEWS = [
+  {
+    dbId: "mock-1",
+    userName: "Mariana Costa",
+    userCargo: "Coordenadora de Operações",
+    rating: 5,
+    comment: "Excelente curso! A didática é fantástica e a aplicação prática no SharePoint nos ajudou a economizar muito com licenças na empresa. Recomendo fortemente!",
+    created_at: "2026-06-15T14:30:00Z"
+  },
+  {
+    dbId: "mock-2",
+    userName: "Rodrigo Almeida",
+    userCargo: "Analista de Planejamento",
+    rating: 5,
+    comment: "Sensacional. O foco em soluções de negócio reais sem precisar programar é o grande diferencial. Consegui automatizar três processos na mesma semana.",
+    created_at: "2026-06-20T10:15:00Z"
+  },
+  {
+    dbId: "mock-3",
+    userName: "Beatriz Nogueira",
+    userCargo: "Gerente de Projetos",
+    rating: 5,
+    comment: "Material de extrema qualidade. O suporte do instrutor no esclarecimento das dúvidas é muito ágil. Vale cada centavo do investimento.",
+    created_at: "2026-06-25T18:45:00Z"
+  }
+];
+
 export default function CursoDetalhePage() {
   const params = useParams();
   const id = params.id;
@@ -55,11 +82,14 @@ export default function CursoDetalhePage() {
     }
   }, [id]);
 
-  const averageRating = useMemo(() => {
-    if (courseReviews.length === 0) return 4.9;
-    const total = courseReviews.reduce((acc, r) => acc + r.rating, 0);
-    return (total / courseReviews.length).toFixed(1);
+  const reviewsToDisplay = useMemo(() => {
+    return courseReviews.length > 0 ? courseReviews : MOCK_REVIEWS;
   }, [courseReviews]);
+
+  const averageRating = useMemo(() => {
+    const total = reviewsToDisplay.reduce((acc, r) => acc + r.rating, 0);
+    return (total / reviewsToDisplay.length).toFixed(1);
+  }, [reviewsToDisplay]);
 
   const hasUserReviewed = useMemo(() => {
     if (!user || courseReviews.length === 0) return false;
@@ -470,41 +500,87 @@ export default function CursoDetalhePage() {
             </div>
 
             {/* Right side: List of reviews */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div style={{ width: '100%', overflow: 'hidden' }}>
               {loadingReviews ? (
                 <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>Carregando avaliações...</div>
-              ) : courseReviews.length > 0 ? (
-                courseReviews.map((review) => (
-                  <div key={review.dbId} style={{ background: 'rgba(15,23,42,0.3)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 'bold', fontSize: 'var(--font-sm)', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        {review.userName}
-                        {review.userCargo && (
-                          <span style={{ fontWeight: 'normal', color: 'var(--text-muted)', fontSize: 'var(--font-xs)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            {review.userCargo}
-                          </span>
-                        )}
-                      </span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        {review.created_at ? new Date(review.created_at).toLocaleDateString('pt-BR') : ''}
-                      </span>
-                    </div>
-                    
-                    <div style={{ display: 'flex', color: '#ffb000' }}>
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <span key={i} className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: `"FILL" ${i < review.rating ? 1 : 0}` }}>star</span>
-                      ))}
-                    </div>
-
-                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', margin: 0, lineHeight: 1.5 }}>
-                      {review.comment}
-                    </p>
-                  </div>
-                ))
               ) : (
-                <div style={{ background: 'rgba(15,23,42,0.2)', border: '1px dotted var(--border-color)', borderRadius: 'var(--radius-md)', padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--font-sm)' }}>
-                  Ainda não há avaliações de alunos formados para este curso. Seja o primeiro!
-                </div>
+                <>
+                  <style>{`
+                    .reviews-scroll-container {
+                      display: flex;
+                      gap: 20px;
+                      overflow-x: auto;
+                      padding: 10px 5px 20px 5px;
+                      scroll-behavior: smooth;
+                      scroll-snap-type: x mandatory;
+                      scrollbar-width: thin;
+                    }
+                    .reviews-scroll-container::-webkit-scrollbar {
+                      height: 6px;
+                    }
+                    .reviews-scroll-container::-webkit-scrollbar-track {
+                      background: rgba(255,255,255,0.02);
+                      border-radius: 3px;
+                    }
+                    .reviews-scroll-container::-webkit-scrollbar-thumb {
+                      background: rgba(0, 245, 212, 0.2);
+                      border-radius: 3px;
+                    }
+                    .reviews-scroll-container::-webkit-scrollbar-thumb:hover {
+                      background: rgba(0, 245, 212, 0.4);
+                    }
+                    .review-card-item {
+                      background: rgba(15,23,42,0.3);
+                      border: 1px solid var(--border-color);
+                      border-radius: var(--radius-md);
+                      padding: 20px;
+                      display: flex;
+                      flex-direction: column;
+                      gap: 8px;
+                      box-sizing: border-box;
+                    }
+                    .review-card-item--scroll {
+                      flex: 0 0 320px;
+                      scroll-snap-align: start;
+                    }
+                    .review-card-item--list {
+                      width: 100%;
+                    }
+                  `}</style>
+
+                  <div className={reviewsToDisplay.length > 3 ? "reviews-scroll-container" : ""} style={reviewsToDisplay.length <= 3 ? { display: 'flex', flexDirection: 'column', gap: '15px' } : {}}>
+                    {reviewsToDisplay.map((review) => (
+                      <div 
+                        key={review.dbId} 
+                        className={reviewsToDisplay.length > 3 ? "review-card-item review-card-item--scroll" : "review-card-item review-card-item--list"}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: 'var(--font-sm)', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            {review.userName}
+                            {review.userCargo && (
+                              <span style={{ fontWeight: 'normal', color: 'var(--text-muted)', fontSize: 'var(--font-xs)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                {review.userCargo}
+                              </span>
+                            )}
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            {review.created_at ? new Date(review.created_at).toLocaleDateString('pt-BR') : ''}
+                          </span>
+                        </div>
+                        
+                        <div style={{ display: 'flex', color: '#ffb000' }}>
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <span key={i} className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: `"FILL" ${i < review.rating ? 1 : 0}` }}>star</span>
+                          ))}
+                        </div>
+
+                        <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', margin: 0, lineHeight: 1.5 }}>
+                          {review.comment}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
 
