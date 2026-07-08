@@ -37,36 +37,37 @@ export default function CursoDetalhePage() {
 
     setProcessingBuy(true);
     try {
-      let checkoutUrl = course?.paymentLink || '#';
+      let checkoutUrl = null;
       let transactionId = 'MP-PENDING-' + Math.floor(10000000 + Math.random() * 90000000);
 
-      try {
-        const response = await fetch('/api/checkout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            courseId: course?.id,
-            courseTitle: course?.title,
-            coursePrice: course?.price || 0,
-            userId: user.id,
-            userEmail: user.email
-          })
-        });
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          courseId: course?.id,
+          courseTitle: course?.title,
+          coursePrice: course?.price || 0,
+          userId: user.id,
+          userEmail: user.email
+        })
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.init_point) {
-            checkoutUrl = data.init_point;
-            const prefIdMatch = data.init_point.match(/pref_id=([^&]+)/);
-            if (prefIdMatch && prefIdMatch[1]) {
-              transactionId = 'MP-PREF-' + prefIdMatch[1];
-            }
-          }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao gerar link de pagamento dinâmico.');
+      }
+
+      const data = await response.json();
+      if (data.init_point) {
+        checkoutUrl = data.init_point;
+        const prefIdMatch = data.init_point.match(/pref_id=([^&]+)/);
+        if (prefIdMatch && prefIdMatch[1]) {
+          transactionId = 'MP-PREF-' + prefIdMatch[1];
         }
-      } catch (apiErr) {
-        console.warn("Mercado Pago API error, falling back to static link:", apiErr);
+      } else {
+        throw new Error("Resposta inválida do gateway de pagamento.");
       }
 
       // Save pending purchase in Firestore
@@ -85,7 +86,7 @@ export default function CursoDetalhePage() {
       window.location.href = checkoutUrl;
     } catch (err) {
       console.error("Erro ao processar compra:", err);
-      alert("Erro ao processar compra: " + err.message);
+      alert("Falha no pagamento: " + err.message);
       setProcessingBuy(false);
     }
   };

@@ -3,8 +3,30 @@ import { AuthProvider } from "../context/AuthContext";
 import AppLayout from "../components/AppLayout";
 
 export const metadata = {
+  metadataBase: new URL("https://nsnexus.com.br"),
   title: "NSNexus — Cursos & Consultoria de Impacto Corporativo",
   description: "Aprenda Power BI, Power Apps, SharePoint, Sistemas e IA sob a ótica de negócios. Domine as ferramentas que aceleram decisões e automatizam rotinas.",
+  icons: {
+    icon: "/images/logo.png",
+    shortcut: "/images/logo.png",
+    apple: "/images/logo.png"
+  },
+  openGraph: {
+    title: "NSNexus — Cursos & Consultoria de Impacto Corporativo",
+    description: "Aprenda Power BI, Power Apps, SharePoint, Sistemas e IA sob a ótica de negócios. Domine as ferramentas que aceleram decisões e automatizam rotinas.",
+    url: "https://nsnexus.com.br",
+    siteName: "NSNexus",
+    images: [
+      {
+        url: "/images/logo.png",
+        width: 512,
+        height: 512,
+        alt: "NSNexus Logo"
+      }
+    ],
+    locale: "pt_BR",
+    type: "website"
+  }
 };
 
 export default function RootLayout({ children }) {
