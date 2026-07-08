@@ -7,7 +7,6 @@ import { useAuth } from '../../context/AuthContext';
 import AdminRoute from '../../components/AdminRoute';
 
 function getProjectCover(proj) {
-  if (proj.coverUrl) return proj.coverUrl;
   if (!proj.isStatic && proj.mediaUrl) {
     if (proj.mediaUrl.includes('youtube.com') || proj.mediaUrl.includes('youtu.be')) {
       const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -16,6 +15,7 @@ function getProjectCover(proj) {
       if (videoId) return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
     }
   }
+  if (proj.coverUrl) return proj.coverUrl;
   return proj.mediaUrl;
 }
 
