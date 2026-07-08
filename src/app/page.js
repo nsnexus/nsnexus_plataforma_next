@@ -26,6 +26,19 @@ function getVideoEmbedUrl(url) {
   return url;
 }
 
+function getProjectCover(proj) {
+  if (proj.coverUrl) return proj.coverUrl;
+  if (!proj.isStatic && proj.mediaUrl) {
+    if (proj.mediaUrl.includes('youtube.com') || proj.mediaUrl.includes('youtu.be')) {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = proj.mediaUrl.match(regExp);
+      const videoId = (match && match[2].length === 11) ? match[2] : null;
+      if (videoId) return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    }
+  }
+  return proj.mediaUrl;
+}
+
 const SHOWCASE_PROJECTS = [
   {
     id: "proj-1",
@@ -632,7 +645,7 @@ export default function Home() {
               style={{ cursor: proj.isStatic ? 'default' : 'pointer' }}
             >
               <div className="showcase-card__img-wrapper">
-                <img src={proj.coverUrl || proj.mediaUrl} alt={proj.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={getProjectCover(proj)} alt={proj.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 {!proj.isStatic && (
                   <div className="showcase-card__play-btn">
                     <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>play_arrow</span>

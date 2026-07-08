@@ -6,6 +6,19 @@ import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, addDoc } from '
 import { useAuth } from '../../context/AuthContext';
 import AdminRoute from '../../components/AdminRoute';
 
+function getProjectCover(proj) {
+  if (proj.coverUrl) return proj.coverUrl;
+  if (!proj.isStatic && proj.mediaUrl) {
+    if (proj.mediaUrl.includes('youtube.com') || proj.mediaUrl.includes('youtu.be')) {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = proj.mediaUrl.match(regExp);
+      const videoId = (match && match[2].length === 11) ? match[2] : null;
+      if (videoId) return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    }
+  }
+  return proj.mediaUrl;
+}
+
 function AdminContent() {
   const { user, signOut, courses, reloadCourses } = useAuth();
   const router = useRouter();
@@ -1012,7 +1025,7 @@ function AdminContent() {
                       {dbProjects.map(proj => (
                         <tr key={proj.id || proj.dbId} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                           <td style={{ padding: '15px' }}>
-                            <img src={proj.coverUrl || proj.mediaUrl} alt={proj.title} style={{ width: '50px', height: '30px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }} onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100'; }} />
+                            <img src={getProjectCover(proj)} alt={proj.title} style={{ width: '50px', height: '30px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }} onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100'; }} />
                           </td>
                           <td style={{ padding: '15px', fontFamily: 'monospace', color: 'var(--text-muted)' }}>{proj.id}</td>
                           <td style={{ padding: '15px', fontWeight: 'bold' }}>{proj.title}</td>
