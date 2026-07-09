@@ -24,6 +24,13 @@ function CheckoutContent() {
   const [brickCreated, setBrickCreated] = useState(false);
   const [processing, setProcessing] = useState(false);
 
+  // Check if SDK was already loaded by root layout
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.MercadoPago) {
+      setSdkLoaded(true);
+    }
+  }, []);
+
   useEffect(() => {
     if (courseId && courses) {
       const found = courses.find(c => c.id === courseId);
@@ -214,7 +221,7 @@ function CheckoutContent() {
     <main style={{ paddingTop: '100px', minHeight: '90vh', background: 'var(--bg-primary)', color: 'white' }}>
       <Script 
         src="https://sdk.mercadopago.com/js/v2" 
-        strategy="lazyOnload" 
+        strategy="afterInteractive" 
         onLoad={() => setSdkLoaded(true)}
       />
 

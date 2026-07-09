@@ -36,6 +36,8 @@ export default function RootLayout({ children }) {
         {/* Material Symbols Outlined */}
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
         <link rel="icon" type="image/png" href="/images/logo.png" />
+        {/* Pre-carrega o SDK do Mercado Pago para o checkout ser instantâneo */}
+        <script src="https://sdk.mercadopago.com/js/v2" async></script>
       </head>
       <body>
         <AuthProvider>
