@@ -379,6 +379,7 @@ function DashboardContent() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--text-muted)' }}>shopping_bag</span>
                       <strong>{courseObj?.title || p.course_id}</strong>
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
                       <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
                         Código: <span style={{ color: 'var(--accent-cyan)', fontFamily: 'monospace' }}>{p.payment_id}</span>
