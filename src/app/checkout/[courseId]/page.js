@@ -152,40 +152,6 @@ function CheckoutContent() {
     initBrick();
   }, [sdkLoaded, course, user, brickCreated, pixData, isPaymentApproved, isPaymentInProcess]);
 
-  const handleSimulatePayment = async () => {
-    if (!user) {
-      alert("Por favor, faça login para continuar a compra.");
-      router.push('/login');
-      return;
-    }
-
-    setProcessing(true);
-    try {
-      const generatedPaymentId = 'MP-SIM-' + Math.floor(10000000 + Math.random() * 90000000);
-      
-      await addDoc(collection(db, 'purchases'), {
-        user_id: user.id,
-        user_email: user.email,
-        user_name: user.name,
-        course_id: course.id,
-        price_paid: course.price,
-        status: 'approved',
-        payment_id: generatedPaymentId,
-        created_at: new Date().toISOString()
-      });
-
-      await reloadUser();
-
-      alert(`Pagamento simulado com sucesso! Acesso liberado!`);
-      router.push('/dashboard');
-    } catch (err) {
-      console.error("Erro ao registrar compra simulada:", err);
-      alert("Erro ao confirmar compra: " + err.message);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
   if (!course) {
     return (
       <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: 'white' }}>
@@ -358,17 +324,6 @@ function CheckoutContent() {
                   <span>Total</span>
                   <span style={{ color: 'var(--accent-cyan)' }}>R$ {course.price.toFixed(2)}</span>
                 </div>
-              </div>
-
-              {/* Developer Test Simulation */}
-              <div style={{ marginTop: '25px', borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '15px', textAlign: 'center' }}>
-                <button 
-                  onClick={handleSimulatePayment} 
-                  disabled={processing}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '10px', textDecoration: 'underline', cursor: 'pointer' }}
-                >
-                  {processing ? 'Confirmando...' : 'Dev Sandbox: Liberar curso sem pagar'}
-                </button>
               </div>
 
             </div>
