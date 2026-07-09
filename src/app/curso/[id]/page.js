@@ -122,81 +122,27 @@ export default function CursoDetalhePage() {
     }
   };
 
-  const handleBuyClick = async (e) => {
+  const handleBuyClick = (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (processingBuy) return;
 
     if (!user) {
       if (typeof window !== 'undefined') {
-        localStorage.setItem("post_login_redirect", `/curso/${course?.id}?buy=true`);
+        localStorage.setItem("post_login_redirect", `/checkout/${course?.id}`);
       }
       router.push('/login');
       return;
     }
 
-    setProcessingBuy(true);
-    try {
-      let checkoutUrl = null;
-      let transactionId = 'MP-PENDING-' + Math.floor(10000000 + Math.random() * 90000000);
-
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          courseId: course?.id,
-          courseTitle: course?.title,
-          coursePrice: course?.price || 0,
-          userId: user.id,
-          userEmail: user.email
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao gerar link de pagamento dinâmico.');
-      }
-
-      const data = await response.json();
-      if (data.init_point) {
-        checkoutUrl = data.init_point;
-        const prefIdMatch = data.init_point.match(/pref_id=([^&]+)/);
-        if (prefIdMatch && prefIdMatch[1]) {
-          transactionId = 'MP-PREF-' + prefIdMatch[1];
-        }
-      } else {
-        throw new Error("Resposta inválida do gateway de pagamento.");
-      }
-
-      // Save pending purchase in Firestore
-      await addDoc(collection(db, 'purchases'), {
-        user_id: user.id,
-        user_email: user.email,
-        user_name: user.name || 'Aluno',
-        course_id: course?.id,
-        price_paid: course?.price || 0,
-        status: 'pending',
-        payment_id: transactionId,
-        created_at: new Date().toISOString()
-      });
-
-      // Redirect directly to Mercado Pago
-      window.location.href = checkoutUrl;
-    } catch (err) {
-      console.error("Erro ao processar compra:", err);
-      alert("Falha no pagamento: " + err.message);
-      setProcessingBuy(false);
-    }
+    router.push(`/checkout/${course?.id}`);
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && course && user && !processingBuy) {
+    if (typeof window !== 'undefined' && course && user) {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('buy') === 'true') {
         const newUrl = window.location.pathname;
         window.history.replaceState({}, document.title, newUrl);
-        handleBuyClick();
+        router.push(`/checkout/${course?.id}`);
       }
     }
   }, [user, course]);
