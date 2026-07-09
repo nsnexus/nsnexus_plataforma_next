@@ -138,6 +138,55 @@ function DashboardContent() {
     }
   }, [user]);
 
+  // Auto-verify payment when user returns from Mercado Pago
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user || !user.id) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+
+    if (paymentStatus === 'success' && pendingPurchases.length > 0) {
+      // Clean the URL
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+
+      // Verify each pending purchase with Mercado Pago
+      const verifyPending = async () => {
+        let anyApproved = false;
+
+        for (const purchase of pendingPurchases) {
+          try {
+            const response = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: user.id,
+                courseId: purchase.course_id
+              })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              if (data.status === 'approved') {
+                anyApproved = true;
+              }
+            }
+          } catch (err) {
+            console.error("Erro ao verificar pagamento para", purchase.course_id, err);
+          }
+        }
+
+        if (anyApproved) {
+          // Reload user to refresh enrolledCourses
+          await reloadUser();
+          alert("✅ Pagamento confirmado! Seu acesso ao curso foi liberado.");
+        }
+      };
+
+      verifyPending();
+    }
+  }, [user, pendingPurchases]);
+
   if (!user) {
     return (
       <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: 'white' }}>

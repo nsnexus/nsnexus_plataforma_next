@@ -30,6 +30,7 @@ export async function POST(request) {
         email: userEmail
       },
       external_reference: `${userId}:${courseId}`,
+      notification_url: `${request.nextUrl.origin}/api/webhook`,
       back_urls: {
         success: `${request.nextUrl.origin}/dashboard?payment=success`,
         failure: `${request.nextUrl.origin}/dashboard?payment=failure`,
