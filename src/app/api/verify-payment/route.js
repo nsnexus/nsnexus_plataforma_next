@@ -72,10 +72,7 @@ export async function POST(request) {
       return NextResponse.json({ status: 'pending', message: 'Nenhum pagamento aprovado encontrado.' });
     }
 
-    // Payment is approved! Update the purchase record in Firestore
-    const purchasesRef = collection(db, 'purchases');
-    const q = query(purchasesRef, where('user_id', '==', userId), where('course_id', '==', courseId));
-    const querySnapshot = await getDocs(q);
+    // Payment is approved! Update the purchase record in Firestore (using the query snapshot fetched at the beginning)
 
     if (!querySnapshot.empty) {
       // Update existing purchase to approved
