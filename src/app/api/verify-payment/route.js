@@ -17,25 +17,56 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Token do Mercado Pago não configurado.' }, { status: 500 });
     }
 
-    // Search for payments with the external_reference matching userId:courseId
-    const searchUrl = `https://api.mercadopago.com/v1/payments/search?external_reference=${userId}:${courseId}&sort=date_created&criteria=desc&limit=5`;
+    // 1. Fetch current purchase from Firestore to see if we have a payment ID
+    const purchasesRef = collection(db, 'purchases');
+    const q = query(purchasesRef, where('user_id', '==', userId), where('course_id', '==', courseId));
+    const querySnapshot = await getDocs(q);
 
-    const mpResponse = await fetch(searchUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
+    let approvedPayment = null;
+    let purchaseDoc = null;
+
+    if (!querySnapshot.empty) {
+      purchaseDoc = querySnapshot.docs[0];
+      const purchaseData = purchaseDoc.data();
+      const paymentIdStr = purchaseData.payment_id || '';
+
+      // If we have a transaction ID from the Mercado Pago API (ends in digits)
+      const numericMatch = paymentIdStr.match(/\d+$/);
+      if (numericMatch) {
+        const mpPaymentId = numericMatch[0];
+        console.log(`Direct lookup on Mercado Pago for payment ID: ${mpPaymentId}`);
+        
+        try {
+          const directMpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${mpPaymentId}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
+          if (directMpResponse.ok) {
+            const directMpData = await directMpResponse.json();
+            if (directMpData.status === 'approved') {
+              approvedPayment = directMpData;
+            }
+          }
+        } catch (directErr) {
+          console.warn("Direct lookup failed, falling back to search:", directErr);
+        }
       }
-    });
-
-    if (!mpResponse.ok) {
-      console.error("Erro ao buscar pagamentos no Mercado Pago:", await mpResponse.text());
-      return NextResponse.json({ error: 'Falha ao consultar Mercado Pago.' }, { status: 502 });
     }
 
-    const mpData = await mpResponse.json();
-    const results = mpData.results || [];
+    // 2. Fallback to Search API if direct lookup didn't find approved payment
+    if (!approvedPayment) {
+      console.log(`Falling back to search query for external_reference: ${userId}:${courseId}`);
+      const searchUrl = `https://api.mercadopago.com/v1/payments/search?external_reference=${userId}:${courseId}&sort=date_created&criteria=desc&limit=5`;
 
-    // Find the first approved payment
-    const approvedPayment = results.find(p => p.status === 'approved');
+      const mpResponse = await fetch(searchUrl, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+
+      if (mpResponse.ok) {
+        const mpData = await mpResponse.json();
+        const results = mpData.results || [];
+        approvedPayment = results.find(p => p.status === 'approved');
+      }
+    }
 
     if (!approvedPayment) {
       return NextResponse.json({ status: 'pending', message: 'Nenhum pagamento aprovado encontrado.' });
