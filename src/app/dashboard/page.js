@@ -17,6 +17,7 @@ function DashboardContent() {
   const [editPhotoBase64, setEditPhotoBase64] = useState('');
   const [editCargo, setEditCargo] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
+  const [checkingPaymentId, setCheckingPaymentId] = useState(null);
 
   useEffect(() => {
     if (selectedCertificateCourse) {
@@ -114,6 +115,38 @@ function DashboardContent() {
     }
   };
 
+  const handleCheckPayment = async (courseId, purchaseId) => {
+    setCheckingPaymentId(purchaseId);
+    try {
+      const response = await fetch('/api/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          courseId: courseId
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'approved') {
+          alert("✅ Pagamento confirmado! Seu acesso ao curso foi liberado.");
+          await reloadUser();
+          setPendingPurchases(prev => prev.filter(p => p.id !== purchaseId));
+        } else {
+          alert("⌛ O Mercado Pago ainda não confirmou o recebimento deste pagamento. Se você acabou de pagar, aguarde de 1 a 2 minutos e clique novamente.");
+        }
+      } else {
+        alert("Não conseguimos verificar com o Mercado Pago. Tente novamente em alguns segundos.");
+      }
+    } catch (err) {
+      console.error("Erro ao verificar pagamento:", err);
+      alert("Erro de conexão ao verificar pagamento.");
+    } finally {
+      setCheckingPaymentId(null);
+    }
+  };
+
   useEffect(() => {
     if (user && user.id) {
       const fetchPendingPurchases = async () => {
@@ -138,54 +171,62 @@ function DashboardContent() {
     }
   }, [user]);
 
-  // Auto-verify payment when user returns from Mercado Pago
+  // Auto-verify all pending payments in background when dashboard loads
   useEffect(() => {
-    if (typeof window === 'undefined' || !user || !user.id) return;
+    if (typeof window === 'undefined' || !user || !user.id || pendingPurchases.length === 0) return;
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get('payment');
-
-    if (paymentStatus === 'success' && pendingPurchases.length > 0) {
-      // Clean the URL
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-
-      // Verify each pending purchase with Mercado Pago
-      const verifyPending = async () => {
-        let anyApproved = false;
-
-        for (const purchase of pendingPurchases) {
-          try {
-            const response = await fetch('/api/verify-payment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: user.id,
-                courseId: purchase.course_id
-              })
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-              if (data.status === 'approved') {
-                anyApproved = true;
-              }
+    const verifyAllPending = async () => {
+      let anyApproved = false;
+      for (const purchase of pendingPurchases) {
+        try {
+          const response = await fetch('/api/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.id,
+              courseId: purchase.course_id
+            })
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.status === 'approved') {
+              anyApproved = true;
             }
-          } catch (err) {
-            console.error("Erro ao verificar pagamento para", purchase.course_id, err);
           }
+        } catch (err) {
+          console.error("Erro na verificação automática:", err);
         }
-
-        if (anyApproved) {
-          // Reload user to refresh enrolledCourses
-          await reloadUser();
-          alert("✅ Pagamento confirmado! Seu acesso ao curso foi liberado.");
+      }
+      if (anyApproved) {
+        await reloadUser();
+        // Reload local list
+        try {
+          const purchasesRef = collection(db, 'purchases');
+          const q = query(
+            purchasesRef, 
+            where('user_id', '==', user.id), 
+            where('status', '==', 'pending')
+          );
+          const querySnapshot = await getDocs(q);
+          const pending = [];
+          querySnapshot.forEach(doc => {
+            pending.push({ id: doc.id, ...doc.data() });
+          });
+          setPendingPurchases(pending);
+          alert("✅ Seu pagamento foi processado com sucesso e o acesso ao curso foi liberado!");
+        } catch (e) {
+          console.error(e);
         }
-      };
+      }
+    };
 
-      verifyPending();
-    }
-  }, [user, pendingPurchases]);
+    // Delay checking slightly to allow MP Webhook to act first
+    const timer = setTimeout(() => {
+      verifyAllPending();
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [user, pendingPurchases.length]);
 
   if (!user) {
     return (
@@ -338,9 +379,30 @@ function DashboardContent() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--text-muted)' }}>shopping_bag</span>
                       <strong>{courseObj?.title || p.course_id}</strong>
-                    </div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-                      Código: <span style={{ color: 'var(--accent-cyan)', fontFamily: 'monospace' }}>{p.payment_id}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                        Código: <span style={{ color: 'var(--accent-cyan)', fontFamily: 'monospace' }}>{p.payment_id}</span>
+                      </div>
+                      <button
+                        onClick={() => handleCheckPayment(p.course_id, p.id)}
+                        disabled={checkingPaymentId === p.id}
+                        className="btn btn-sm btn-outline"
+                        style={{
+                          padding: '4px 10px',
+                          fontSize: '11px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          cursor: 'pointer',
+                          borderColor: 'var(--accent-cyan)',
+                          color: 'var(--accent-cyan)',
+                          background: 'rgba(0, 245, 212, 0.05)',
+                          borderRadius: '4px'
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '13px', animation: checkingPaymentId === p.id ? 'spin 1s linear infinite' : 'none' }}>sync</span>
+                        {checkingPaymentId === p.id ? 'Verificando...' : 'Checar Pagamento'}
+                      </button>
                     </div>
                   </div>
                 );
