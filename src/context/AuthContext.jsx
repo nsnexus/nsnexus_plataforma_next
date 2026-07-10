@@ -20,7 +20,7 @@ import {
   query, 
   where,
   orderBy 
-} from 'firebase/firestore';
+} from 'firebase/firestore/lite';
 import { COURSES_DATA } from '../data/platformData';
 
 const AuthContext = createContext({});

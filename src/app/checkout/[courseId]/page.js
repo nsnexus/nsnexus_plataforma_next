@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { useAuth } from '../../../context/AuthContext';
 import { db } from '../../../utils/firebase/client';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore/lite';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 
 function CheckoutContent() {

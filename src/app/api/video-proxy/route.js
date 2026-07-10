@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 export const runtime = 'edge';
 import { db } from '../../../utils/firebase/client';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore/lite';
 
 function getVideoEmbedUrl(url) {
   if (!url) return '';

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { db } from '../../utils/firebase/client';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore/lite';
 
 function DashboardContent() {
   const { user, courses, reloadUser } = useAuth();

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import { CountdownTimer } from '../../../components/CountdownTimer';
 import { db } from '../../../utils/firebase/client';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where } from 'firebase/firestore/lite';
 
 const MOCK_REVIEWS = [
   {

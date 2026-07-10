@@ -5,7 +5,7 @@ import { COURSES_DATA, SERVICES_DATA, TESTIMONIALS_DATA } from '../data/platform
 import { CourseCard } from '../components/CourseCard';
 import { ServiceCard } from '../components/ServiceCard';
 import { db } from '../utils/firebase/client';
-import { collection, getDocs, query, orderBy, addDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, addDoc } from 'firebase/firestore/lite';
 
 function getVideoEmbedUrl(url) {
   if (!url) return '';
