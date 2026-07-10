@@ -90,6 +90,27 @@ function AdminContent() {
     syllabus: []
   });
 
+  // ========== CONTENT MANAGEMENT STATE ==========
+  const [contentCourseId, setContentCourseId] = useState('');
+  const [contentSyllabus, setContentSyllabus] = useState([]);
+  const [savingContent, setSavingContent] = useState(false);
+  const [showLessonModal, setShowLessonModal] = useState(false);
+  const [editingLessonPath, setEditingLessonPath] = useState(null); // { modIndex, lesIndex } or null for new
+  const [lessonForm, setLessonForm] = useState({
+    id: '',
+    title: '',
+    duration: '',
+    type: 'video',
+    url: '',
+    fileUrl: '',
+    downloadUrl: '',
+    downloadName: '',
+    content: [],
+    codeBlocks: [{ language: 'javascript', filename: '', code: '' }],
+    description: ''
+  });
+  const [addToModuleIndex, setAddToModuleIndex] = useState(0);
+
   // Fetch all profiles and purchases from Firestore
   const loadData = async () => {
     setLoadingData(true);
@@ -513,6 +534,180 @@ function AdminContent() {
     }
   };
 
+  // ========== CONTENT MANAGEMENT HANDLERS ==========
+  const handleSelectContentCourse = (cId) => {
+    setContentCourseId(cId);
+    if (cId) {
+      const found = courses.find(c => c.id === cId);
+      setContentSyllabus(found?.syllabus ? JSON.parse(JSON.stringify(found.syllabus)) : []);
+    } else {
+      setContentSyllabus([]);
+    }
+  };
+
+  const handleAddModule = () => {
+    const title = prompt('Título do novo módulo:');
+    if (!title) return;
+    setContentSyllabus(prev => [...prev, { moduleTitle: title, lessons: [] }]);
+  };
+
+  const handleEditModuleTitle = (modIndex) => {
+    const current = contentSyllabus[modIndex].moduleTitle;
+    const newTitle = prompt('Novo título do módulo:', current);
+    if (!newTitle) return;
+    setContentSyllabus(prev => {
+      const updated = [...prev];
+      updated[modIndex] = { ...updated[modIndex], moduleTitle: newTitle };
+      return updated;
+    });
+  };
+
+  const handleDeleteModule = (modIndex) => {
+    if (!window.confirm('Excluir este módulo e todas as aulas dentro dele?')) return;
+    setContentSyllabus(prev => prev.filter((_, i) => i !== modIndex));
+  };
+
+  const handleMoveModule = (modIndex, direction) => {
+    const newIndex = modIndex + direction;
+    if (newIndex < 0 || newIndex >= contentSyllabus.length) return;
+    setContentSyllabus(prev => {
+      const updated = [...prev];
+      [updated[modIndex], updated[newIndex]] = [updated[newIndex], updated[modIndex]];
+      return updated;
+    });
+  };
+
+  const handleOpenAddLesson = (modIndex) => {
+    setEditingLessonPath(null);
+    setAddToModuleIndex(modIndex);
+    const autoId = 'les-' + Date.now().toString(36);
+    setLessonForm({
+      id: autoId,
+      title: '',
+      duration: '',
+      type: 'video',
+      url: '',
+      fileUrl: '',
+      downloadUrl: '',
+      downloadName: '',
+      content: [],
+      codeBlocks: [{ language: 'javascript', filename: '', code: '' }],
+      description: ''
+    });
+    setShowLessonModal(true);
+  };
+
+  const handleOpenEditLesson = (modIndex, lesIndex) => {
+    const les = contentSyllabus[modIndex].lessons[lesIndex];
+    setEditingLessonPath({ modIndex, lesIndex });
+    setAddToModuleIndex(modIndex);
+    setLessonForm({
+      id: les.id || '',
+      title: les.title || '',
+      duration: les.duration || '',
+      type: les.type || 'video',
+      url: les.url || '',
+      fileUrl: les.fileUrl || '',
+      downloadUrl: les.downloadUrl || '',
+      downloadName: les.downloadName || '',
+      content: les.content || [],
+      codeBlocks: les.codeBlocks || [{ language: 'javascript', filename: '', code: '' }],
+      description: les.description || ''
+    });
+    setShowLessonModal(true);
+  };
+
+  const handleSaveLesson = () => {
+    if (!lessonForm.id || !lessonForm.title) {
+      alert('ID e Título são obrigatórios.');
+      return;
+    }
+    const lessonData = { ...lessonForm };
+    // Clean unused fields based on type
+    if (lessonData.type !== 'video') { lessonData.url = lessonData.url || ''; }
+    if (lessonData.type !== 'code') { delete lessonData.codeBlocks; }
+    if (lessonData.type !== 'download') { delete lessonData.downloadUrl; delete lessonData.downloadName; }
+    if (lessonData.type !== 'pdf') { delete lessonData.fileUrl; }
+    if (lessonData.type !== 'text' && !lessonData.content?.length) { delete lessonData.content; }
+    if (!lessonData.description) { delete lessonData.description; }
+
+    setContentSyllabus(prev => {
+      const updated = JSON.parse(JSON.stringify(prev));
+      if (editingLessonPath) {
+        updated[editingLessonPath.modIndex].lessons[editingLessonPath.lesIndex] = lessonData;
+      } else {
+        if (!updated[addToModuleIndex].lessons) updated[addToModuleIndex].lessons = [];
+        updated[addToModuleIndex].lessons.push(lessonData);
+      }
+      return updated;
+    });
+    setShowLessonModal(false);
+  };
+
+  const handleDeleteLesson = (modIndex, lesIndex) => {
+    if (!window.confirm('Excluir esta aula?')) return;
+    setContentSyllabus(prev => {
+      const updated = JSON.parse(JSON.stringify(prev));
+      updated[modIndex].lessons.splice(lesIndex, 1);
+      return updated;
+    });
+  };
+
+  const handleMoveLesson = (modIndex, lesIndex, direction) => {
+    const newIndex = lesIndex + direction;
+    const lessons = contentSyllabus[modIndex].lessons;
+    if (newIndex < 0 || newIndex >= lessons.length) return;
+    setContentSyllabus(prev => {
+      const updated = JSON.parse(JSON.stringify(prev));
+      const arr = updated[modIndex].lessons;
+      [arr[lesIndex], arr[newIndex]] = [arr[newIndex], arr[lesIndex]];
+      return updated;
+    });
+  };
+
+  const handleSaveContentToFirestore = async () => {
+    if (!contentCourseId) {
+      alert('Selecione um curso primeiro.');
+      return;
+    }
+    setSavingContent(true);
+    try {
+      const courseRef = doc(db, 'courses', contentCourseId);
+      await updateDoc(courseRef, { syllabus: contentSyllabus });
+      alert('Conteúdo do curso salvo com sucesso no Firestore!');
+      await reloadCourses();
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao salvar conteúdo: ' + err.message);
+    } finally {
+      setSavingContent(false);
+    }
+  };
+
+  const getLessonTypeIcon = (type) => {
+    switch (type) {
+      case 'video': return '🎬';
+      case 'code': return '💻';
+      case 'download': return '📥';
+      case 'text': return '📝';
+      case 'pdf': return '📄';
+      case 'audio': return '🎧';
+      default: return '📎';
+    }
+  };
+
+  const getLessonTypeBadge = (type) => {
+    const colors = {
+      video: { bg: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: 'rgba(59,130,246,0.3)' },
+      code: { bg: 'rgba(16,185,129,0.15)', color: '#34d399', border: 'rgba(16,185,129,0.3)' },
+      download: { bg: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: 'rgba(245,158,11,0.3)' },
+      text: { bg: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: 'rgba(139,92,246,0.3)' },
+      pdf: { bg: 'rgba(239,68,68,0.15)', color: '#f87171', border: 'rgba(239,68,68,0.3)' },
+      audio: { bg: 'rgba(236,72,153,0.15)', color: '#f472b6', border: 'rgba(236,72,153,0.3)' }
+    };
+    return colors[type] || colors.video;
+  };
+
   return (
     <div className="admin-body-override" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', color: 'white' }}>
       
@@ -563,6 +758,13 @@ function AdminContent() {
           >
             <span className="nav-icon">📁</span>
             <span>Portfólio ({dbProjects.length})</span>
+          </button>
+          <button 
+            className={`nav-item ${activeSection === 'content' ? 'active' : ''}`} 
+            onClick={() => { setActiveSection('content'); setSidebarOpen(false); }}
+          >
+            <span className="nav-icon">📚</span>
+            <span>Conteúdo</span>
           </button>
         </nav>
 
@@ -1070,6 +1272,161 @@ function AdminContent() {
                 </div>
               </section>
             )}
+
+            {/* ========== SECTION: CONTENT MANAGEMENT ========== */}
+            {activeSection === 'content' && (
+              <section className="admin-section active">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
+                  <div>
+                    <h1 className="section-title" style={{ fontSize: 'var(--font-2xl)', fontWeight: 'bold' }}>Conteúdo dos Cursos</h1>
+                    <p className="section-subtitle" style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)' }}>Gerencie módulos, aulas, vídeos, códigos e downloads de cada curso</p>
+                  </div>
+                </div>
+
+                {/* Course Selector */}
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', marginBottom: '25px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: '1 1 300px' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Selecionar Curso para Editar Conteúdo</label>
+                    <select
+                      value={contentCourseId}
+                      onChange={(e) => handleSelectContentCourse(e.target.value)}
+                      style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                    >
+                      <option value="">-- Selecione um curso --</option>
+                      {courses.map(c => (
+                        <option key={c.id} value={c.id}>{c.title}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {contentCourseId && (
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button className="btn btn-primary btn-sm" onClick={handleAddModule}>
+                        + Novo Módulo
+                      </button>
+                      <button
+                        className="btn btn-sm"
+                        disabled={savingContent}
+                        onClick={handleSaveContentToFirestore}
+                        style={{
+                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          border: 'none',
+                          color: 'white',
+                          padding: '8px 20px',
+                          cursor: savingContent ? 'not-allowed' : 'pointer',
+                          borderRadius: '6px',
+                          fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        {savingContent ? '⏳ Salvando...' : '💾 Salvar no Firestore'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Modules & Lessons List */}
+                {contentCourseId && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {contentSyllabus.length === 0 && (
+                      <div style={{ background: 'rgba(15,23,42,0.45)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '40px', textAlign: 'center' }}>
+                        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--font-sm)' }}>Nenhum módulo cadastrado. Clique em "+ Novo Módulo" para começar.</p>
+                      </div>
+                    )}
+
+                    {contentSyllabus.map((mod, modIndex) => (
+                      <div key={modIndex} style={{ background: 'rgba(15,23,42,0.45)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                        {/* Module Header */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '15px 20px',
+                          background: 'rgba(0,0,0,0.3)',
+                          borderBottom: '1px solid var(--border-color)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ color: 'var(--accent-cyan)', fontWeight: 'bold', fontSize: '12px', background: 'rgba(0,245,212,0.1)', padding: '2px 8px', borderRadius: '4px' }}>M{modIndex + 1}</span>
+                            <span style={{ fontWeight: 'bold', fontSize: 'var(--font-md)' }}>{mod.moduleTitle}</span>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>({mod.lessons?.length || 0} aulas)</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button onClick={() => handleMoveModule(modIndex, -1)} title="Mover para cima" style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }} disabled={modIndex === 0}>↑</button>
+                            <button onClick={() => handleMoveModule(modIndex, 1)} title="Mover para baixo" style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }} disabled={modIndex === contentSyllabus.length - 1}>↓</button>
+                            <button onClick={() => handleEditModuleTitle(modIndex)} style={{ background: 'transparent', border: '1px solid rgba(59,130,246,0.3)', color: '#60a5fa', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>✏️ Renomear</button>
+                            <button onClick={() => handleDeleteModule(modIndex)} style={{ background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>🗑️ Excluir</button>
+                          </div>
+                        </div>
+
+                        {/* Lessons List */}
+                        <div style={{ padding: '10px 20px' }}>
+                          {(!mod.lessons || mod.lessons.length === 0) && (
+                            <p style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '15px 0' }}>Nenhuma aula neste módulo.</p>
+                          )}
+
+                          {mod.lessons?.map((les, lesIndex) => {
+                            const typeBadge = getLessonTypeBadge(les.type);
+                            return (
+                              <div key={les.id || lesIndex} style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '10px 0',
+                                borderBottom: lesIndex < mod.lessons.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
+                                gap: '10px'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                                  <span style={{ fontSize: '16px', flexShrink: 0 }}>{getLessonTypeIcon(les.type)}</span>
+                                  <div style={{ minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: 'var(--font-sm)', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '350px' }} title={les.title}>{les.title}</span>
+                                      <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '3px', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.5px', background: typeBadge.bg, color: typeBadge.color, border: `1px solid ${typeBadge.border}` }}>{les.type}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '3px' }}>
+                                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ID: {les.id}</span>
+                                      {les.duration && <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>⏱️ {les.duration}</span>}
+                                      {les.url && <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>🔗 URL configurada</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
+                                  <button onClick={() => handleMoveLesson(modIndex, lesIndex, -1)} disabled={lesIndex === 0} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'white', padding: '3px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px' }}>↑</button>
+                                  <button onClick={() => handleMoveLesson(modIndex, lesIndex, 1)} disabled={lesIndex === mod.lessons.length - 1} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'white', padding: '3px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px' }}>↓</button>
+                                  <button onClick={() => handleOpenEditLesson(modIndex, lesIndex)} style={{ background: 'transparent', border: '1px solid rgba(59,130,246,0.3)', color: '#60a5fa', padding: '3px 8px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}>Editar</button>
+                                  <button onClick={() => handleDeleteLesson(modIndex, lesIndex)} style={{ background: 'transparent', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', padding: '3px 8px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}>Excluir</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* Add Lesson Button */}
+                          <div style={{ paddingTop: '10px' }}>
+                            <button
+                              onClick={() => handleOpenAddLesson(modIndex)}
+                              style={{
+                                background: 'transparent',
+                                border: '1px dashed rgba(0,245,212,0.3)',
+                                color: 'var(--accent-cyan)',
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                width: '100%',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              + Adicionar Aula neste Módulo
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
           </>
         )}
 
@@ -1503,6 +1860,262 @@ function AdminContent() {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========== MODAL: LESSON ADD/EDIT ========== */}
+      {showLessonModal && (
+        <div className="video-modal video-modal--active" onClick={() => setShowLessonModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)' }}>
+          <div className="video-modal__content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', width: '95%', background: '#0f172a', border: '1px solid var(--border-color)', padding: '25px', borderRadius: '10px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>
+                {editingLessonPath ? '✏️ Editar Aula' : '➕ Nova Aula'}
+              </h3>
+              <button onClick={() => setShowLessonModal(false)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '24px', cursor: 'pointer' }}>&times;</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              {/* Row: ID + Title */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>ID Único</label>
+                  <input
+                    type="text"
+                    value={lessonForm.id}
+                    onChange={(e) => setLessonForm({ ...lessonForm, id: e.target.value })}
+                    disabled={!!editingLessonPath}
+                    placeholder="les-abc123"
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Título da Aula</label>
+                  <input
+                    type="text"
+                    value={lessonForm.title}
+                    onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })}
+                    placeholder="Introdução ao React.js"
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Row: Type + Duration */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Tipo de Conteúdo</label>
+                  <select
+                    value={lessonForm.type}
+                    onChange={(e) => setLessonForm({ ...lessonForm, type: e.target.value })}
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  >
+                    <option value="video">🎬 Vídeo (YouTube / Vimeo / Panda)</option>
+                    <option value="code">💻 Código (Blocos de código)</option>
+                    <option value="download">📥 Arquivo para Download</option>
+                    <option value="text">📝 Texto / Leitura</option>
+                    <option value="pdf">📄 PDF Embutido</option>
+                    <option value="audio">🎧 Áudio / Audiobook</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Duração / Info</label>
+                  <input
+                    type="text"
+                    value={lessonForm.duration}
+                    onChange={(e) => setLessonForm({ ...lessonForm, duration: e.target.value })}
+                    placeholder="25 min / 3 arquivos / etc."
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Conditional Fields by Type */}
+              {/* VIDEO */}
+              {lessonForm.type === 'video' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '8px', padding: '15px' }}>
+                  <label style={{ fontSize: '12px', color: '#60a5fa', fontWeight: 'bold' }}>🎬 URL do Vídeo (YouTube não-listado, Vimeo, Panda)</label>
+                  <input
+                    type="text"
+                    value={lessonForm.url}
+                    onChange={(e) => setLessonForm({ ...lessonForm, url: e.target.value })}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  />
+                  <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: '5px 0 0' }}>⚠️ O link real nunca será exibido ao aluno. O player usa um proxy server-side para proteger a URL.</p>
+                </div>
+              )}
+
+              {/* AUDIO */}
+              {lessonForm.type === 'audio' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', background: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', borderRadius: '8px', padding: '15px' }}>
+                  <label style={{ fontSize: '12px', color: '#f472b6', fontWeight: 'bold' }}>🎧 URL do Áudio (MP3, WAV, etc.)</label>
+                  <input
+                    type="text"
+                    value={lessonForm.url}
+                    onChange={(e) => setLessonForm({ ...lessonForm, url: e.target.value })}
+                    placeholder="https://storage.googleapis.com/.../audio.mp3"
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  />
+                </div>
+              )}
+
+              {/* PDF */}
+              {lessonForm.type === 'pdf' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '8px', padding: '15px' }}>
+                  <label style={{ fontSize: '12px', color: '#f87171', fontWeight: 'bold' }}>📄 URL do PDF para Visualização Embutida</label>
+                  <input
+                    type="text"
+                    value={lessonForm.fileUrl}
+                    onChange={(e) => setLessonForm({ ...lessonForm, fileUrl: e.target.value })}
+                    placeholder="https://firebasestorage.googleapis.com/.../file.pdf"
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                  />
+                </div>
+              )}
+
+              {/* DOWNLOAD */}
+              {lessonForm.type === 'download' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: '8px', padding: '15px' }}>
+                  <label style={{ fontSize: '12px', color: '#fbbf24', fontWeight: 'bold' }}>📥 Arquivo para Download</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+                    <input
+                      type="text"
+                      value={lessonForm.downloadUrl}
+                      onChange={(e) => setLessonForm({ ...lessonForm, downloadUrl: e.target.value })}
+                      placeholder="URL do arquivo (Firebase Storage, etc.)"
+                      style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                    />
+                    <input
+                      type="text"
+                      value={lessonForm.downloadName}
+                      onChange={(e) => setLessonForm({ ...lessonForm, downloadName: e.target.value })}
+                      placeholder="projeto-starter.zip"
+                      style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                    />
+                  </div>
+                  <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0 }}>Nome do arquivo é o que o aluno verá no botão de download.</p>
+                </div>
+              )}
+
+              {/* TEXT */}
+              {lessonForm.type === 'text' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: '8px', padding: '15px' }}>
+                  <label style={{ fontSize: '12px', color: '#a78bfa', fontWeight: 'bold' }}>📝 Conteúdo de Texto (um parágrafo por linha)</label>
+                  <textarea
+                    rows="6"
+                    value={(lessonForm.content || []).join('\n')}
+                    onChange={(e) => setLessonForm({ ...lessonForm, content: e.target.value.split('\n').filter(l => l.trim()) })}
+                    placeholder="Cada linha será exibida como um parágrafo separado no leitor...\nLinha 2 aqui...\nLinha 3..."
+                    style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontFamily: 'inherit', resize: 'vertical' }}
+                  />
+                </div>
+              )}
+
+              {/* CODE */}
+              {lessonForm.type === 'code' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '8px', padding: '15px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label style={{ fontSize: '12px', color: '#34d399', fontWeight: 'bold' }}>💻 Blocos de Código</label>
+                    <button
+                      type="button"
+                      onClick={() => setLessonForm({ ...lessonForm, codeBlocks: [...(lessonForm.codeBlocks || []), { language: 'javascript', filename: '', code: '' }] })}
+                      style={{ background: 'transparent', border: '1px solid rgba(16,185,129,0.3)', color: '#34d399', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}
+                    >
+                      + Bloco
+                    </button>
+                  </div>
+
+                  {(lessonForm.codeBlocks || []).map((block, bIdx) => (
+                    <div key={bIdx} style={{ border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', padding: '12px', background: 'rgba(0,0,0,0.3)' }}>
+                      <div style={{ display: 'flex', gap: '10px', marginBottom: '8px', alignItems: 'center' }}>
+                        <select
+                          value={block.language}
+                          onChange={(e) => {
+                            const updated = [...lessonForm.codeBlocks];
+                            updated[bIdx] = { ...updated[bIdx], language: e.target.value };
+                            setLessonForm({ ...lessonForm, codeBlocks: updated });
+                          }}
+                          style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontSize: '11px' }}
+                        >
+                          <option value="javascript">JavaScript</option>
+                          <option value="html">HTML</option>
+                          <option value="css">CSS</option>
+                          <option value="python">Python</option>
+                          <option value="json">JSON</option>
+                          <option value="sql">SQL</option>
+                          <option value="bash">Bash / Shell</option>
+                          <option value="typescript">TypeScript</option>
+                          <option value="jsx">JSX / React</option>
+                          <option value="csharp">C#</option>
+                          <option value="xml">XML</option>
+                          <option value="powershell">PowerShell</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={block.filename}
+                          onChange={(e) => {
+                            const updated = [...lessonForm.codeBlocks];
+                            updated[bIdx] = { ...updated[bIdx], filename: e.target.value };
+                            setLessonForm({ ...lessonForm, codeBlocks: updated });
+                          }}
+                          placeholder="Nome do arquivo (ex: app.js)"
+                          style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', flex: 1, fontSize: '11px' }}
+                        />
+                        {lessonForm.codeBlocks.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = lessonForm.codeBlocks.filter((_, i) => i !== bIdx);
+                              setLessonForm({ ...lessonForm, codeBlocks: updated });
+                            }}
+                            style={{ background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '4px 8px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px' }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <textarea
+                        rows="8"
+                        value={block.code}
+                        onChange={(e) => {
+                          const updated = [...lessonForm.codeBlocks];
+                          updated[bIdx] = { ...updated[bIdx], code: e.target.value };
+                          setLessonForm({ ...lessonForm, codeBlocks: updated });
+                        }}
+                        placeholder="// Cole ou escreva o código aqui..."
+                        style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.6)', border: '1px solid var(--border-color)', color: '#a5f3fc', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Description (optional, for all types) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>📋 Descrição / Notas da Aula (opcional, exibida abaixo do player)</label>
+                <textarea
+                  rows="3"
+                  value={lessonForm.description}
+                  onChange={(e) => setLessonForm({ ...lessonForm, description: e.target.value })}
+                  placeholder="Notas, links de referência, explicações extras..."
+                  style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontFamily: 'inherit', resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowLessonModal(false)}>Cancelar</button>
+                <button
+                  type="button"
+                  onClick={handleSaveLesson}
+                  className="btn btn-primary"
+                  style={{ fontWeight: 'bold' }}
+                >
+                  {editingLessonPath ? 'Atualizar Aula' : 'Adicionar Aula'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

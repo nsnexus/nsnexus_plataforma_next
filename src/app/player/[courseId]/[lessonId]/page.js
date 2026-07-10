@@ -42,6 +42,17 @@ function PlayerContent() {
   const [volume, setVolume] = useState(1);
   const [readerFontSize, setReaderFontSize] = useState(16);
 
+  // Video proxy state (protects YouTube URL)
+  const [proxyEmbedUrl, setProxyEmbedUrl] = useState('');
+  const [loadingProxy, setLoadingProxy] = useState(false);
+
+  // Code block state
+  const [activeCodeTab, setActiveCodeTab] = useState(0);
+  const [copiedIndex, setCopiedIndex] = useState(-1);
+
+  // Lesson notes toggle
+  const [showNotes, setShowNotes] = useState(false);
+
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -147,6 +158,39 @@ function PlayerContent() {
       }
     }
   }, [courseId, lessonId, courses]);
+
+  // Fetch embed URL via proxy for video lessons
+  useEffect(() => {
+    if (activeLesson && activeLesson.type === 'video' && activeLesson.url) {
+      setLoadingProxy(true);
+      setProxyEmbedUrl('');
+      fetch(`/api/video-proxy?courseId=${courseId}&lessonId=${activeLesson.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.embedUrl) {
+            setProxyEmbedUrl(data.embedUrl);
+          } else {
+            // Fallback to direct embed if proxy fails
+            setProxyEmbedUrl(getVideoEmbedUrl(activeLesson.url));
+          }
+        })
+        .catch(() => {
+          setProxyEmbedUrl(getVideoEmbedUrl(activeLesson.url));
+        })
+        .finally(() => setLoadingProxy(false));
+    }
+    // Reset code tab
+    setActiveCodeTab(0);
+    setCopiedIndex(-1);
+    setShowNotes(false);
+  }, [activeLesson?.id, courseId]);
+
+  const handleCopyCode = (code, index) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(-1), 2000);
+    });
+  };
 
   if (!course || !activeLesson) {
     return (
@@ -609,28 +653,201 @@ function PlayerContent() {
               </div>
 
             </div>
+          ) : activeLesson.type === 'code' ? (
+            /* ===== CODE BLOCKS VIEWER ===== */
+            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#0d1117', overflow: 'hidden' }}>
+              {/* Tab bar */}
+              {activeLesson.codeBlocks && activeLesson.codeBlocks.length > 0 && (
+                <>
+                  <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.4)', padding: '0 15px', flexWrap: 'wrap', gap: '2px' }}>
+                    {activeLesson.codeBlocks.map((block, bIdx) => (
+                      <button
+                        key={bIdx}
+                        onClick={() => setActiveCodeTab(bIdx)}
+                        style={{
+                          padding: '10px 16px',
+                          background: activeCodeTab === bIdx ? 'rgba(16,185,129,0.15)' : 'transparent',
+                          border: 'none',
+                          borderBottom: activeCodeTab === bIdx ? '2px solid #34d399' : '2px solid transparent',
+                          color: activeCodeTab === bIdx ? '#34d399' : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontFamily: 'monospace',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <span style={{ fontSize: '10px', textTransform: 'uppercase', opacity: 0.7 }}>{block.language}</span>
+                        {block.filename || `Bloco ${bIdx + 1}`}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Code content */}
+                  <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+                    <button
+                      onClick={() => handleCopyCode(activeLesson.codeBlocks[activeCodeTab]?.code || '', activeCodeTab)}
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '15px',
+                        background: copiedIndex === activeCodeTab ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: copiedIndex === activeCodeTab ? '#34d399' : 'var(--text-secondary)',
+                        padding: '5px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        zIndex: 5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
+                        {copiedIndex === activeCodeTab ? 'check' : 'content_copy'}
+                      </span>
+                      {copiedIndex === activeCodeTab ? 'Copiado!' : 'Copiar'}
+                    </button>
+
+                    <pre style={{
+                      margin: 0,
+                      padding: '20px',
+                      color: '#e6edf3',
+                      fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace",
+                      fontSize: '13px',
+                      lineHeight: 1.6,
+                      counterReset: 'line',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word'
+                    }}>
+                      {(activeLesson.codeBlocks[activeCodeTab]?.code || '').split('\n').map((line, lineIdx) => (
+                        <div key={lineIdx} style={{ display: 'flex', minHeight: '20px' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            width: '40px',
+                            textAlign: 'right',
+                            paddingRight: '15px',
+                            color: 'rgba(255,255,255,0.2)',
+                            userSelect: 'none',
+                            flexShrink: 0,
+                            fontSize: '12px'
+                          }}>
+                            {lineIdx + 1}
+                          </span>
+                          <code>{line}</code>
+                        </div>
+                      ))}
+                    </pre>
+                  </div>
+                </>
+              )}
+              {(!activeLesson.codeBlocks || activeLesson.codeBlocks.length === 0) && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)' }}>
+                  <p>Nenhum bloco de código cadastrado para esta aula.</p>
+                </div>
+              )}
+            </div>
+          ) : activeLesson.type === 'download' ? (
+            /* ===== DOWNLOAD CARD ===== */
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle at center, rgba(15,23,42,0.95), rgba(9,10,15,0.98))' }}>
+              <div style={{
+                background: 'rgba(15,23,42,0.6)',
+                border: '1px solid rgba(245,158,11,0.2)',
+                borderRadius: '16px',
+                padding: '40px 50px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '20px',
+                maxWidth: '420px',
+                textAlign: 'center',
+                boxShadow: '0 10px 40px rgba(0,0,0,0.4)'
+              }}>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '20px',
+                  background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(245,158,11,0.05))',
+                  border: '1px solid rgba(245,158,11,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '36px', color: '#fbbf24' }}>download</span>
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 'var(--font-lg)', fontWeight: 'bold', marginBottom: '8px' }}>{activeLesson.title}</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)' }}>
+                    {activeLesson.downloadName || 'Arquivo disponível para download'}
+                  </p>
+                </div>
+                {activeLesson.downloadUrl ? (
+                  <a
+                    href={activeLesson.downloadUrl}
+                    download={activeLesson.downloadName || true}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary"
+                    style={{
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '12px 30px',
+                      background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                      border: 'none',
+                      fontWeight: 'bold',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>download</span>
+                    Baixar Arquivo
+                  </a>
+                ) : (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>URL de download não configurada.</p>
+                )}
+              </div>
+            </div>
           ) : (
             <div style={{ width: '100%', height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}>
-              {activeLesson.url && (activeLesson.url.includes('youtube.com') || activeLesson.url.includes('youtu.be') || activeLesson.url.includes('vimeo.com') || activeLesson.url.includes('panda.video') || activeLesson.url.includes('pandasplay.com')) ? (
+              {loadingProxy ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                  <div className="spinner" style={{ border: '4px solid rgba(255,255,255,0.1)', width: '40px', height: '40px', borderRadius: '50%', borderLeftColor: 'var(--accent-cyan)', animation: 'spin 1s linear infinite' }}></div>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Carregando vídeo...</p>
+                </div>
+              ) : proxyEmbedUrl ? (
                 <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-                  <iframe 
-                    src={getVideoEmbedUrl(activeLesson.url)} 
-                    style={{ width: '100%', height: '100%', border: 'none' }} 
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                    allowFullScreen 
+                  <iframe
+                    src={proxyEmbedUrl}
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
                   />
                   {/* Top overlay to block channel name & share button clicks */}
                   <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '60px', zIndex: 10, background: 'transparent', cursor: 'default' }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
-                  {/* Bottom-right overlay to block watch on YouTube clicks */}
-                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '150px', height: '60px', zIndex: 10, background: 'transparent', cursor: 'default' }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                  {/* Bottom-right overlay to block watch on YouTube */}
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '160px', height: '50px', zIndex: 10, background: 'transparent', cursor: 'default' }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                  {/* Bottom-left overlay */}
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, width: '80px', height: '50px', zIndex: 10, background: 'transparent', cursor: 'default' }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                </div>
+              ) : activeLesson.url ? (
+                <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+                  <iframe
+                    src={getVideoEmbedUrl(activeLesson.url)}
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '60px', zIndex: 10, background: 'transparent', cursor: 'default' }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '160px', height: '50px', zIndex: 10, background: 'transparent', cursor: 'default' }} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
                 </div>
               ) : (
-                <video 
-                  src={activeLesson.url || "https://assets.mixkit.co/videos/preview/mixkit-code-on-a-computer-screen-close-up-3032-large.mp4"} 
-                  controls 
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  poster="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1280&auto=format&fit=crop"
-                />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', color: 'var(--text-muted)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '48px' }}>videocam_off</span>
+                  <p>Nenhum vídeo configurado para esta aula.</p>
+                </div>
               )}
             </div>
           )}
@@ -640,7 +857,7 @@ function PlayerContent() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }} id="player-meta">
           <div>
             <h1 style={{ fontSize: 'var(--font-lg)', fontWeight: 'bold' }}>{activeLesson.title}</h1>
-            <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>Módulo: {course.syllabus.find(m => m.lessons.includes(activeLesson))?.moduleTitle}</p>
+            <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>Módulo: {course.syllabus.find(m => m.lessons?.some(l => l.id === activeLesson.id))?.moduleTitle}</p>
           </div>
           
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
@@ -658,6 +875,85 @@ function PlayerContent() {
             </button>
           </div>
         </div>
+
+        {/* ===== LESSON NOTES / DESCRIPTION / DOWNLOADS ===== */}
+        {(activeLesson.description || activeLesson.downloadUrl || (activeLesson.codeBlocks && activeLesson.type !== 'code')) && (
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-3)' }}>
+            <button
+              onClick={() => setShowNotes(!showNotes)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: 'var(--font-sm)',
+                padding: '8px 0',
+                width: '100%',
+                textAlign: 'left'
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px', transition: 'transform 0.2s', transform: showNotes ? 'rotate(90deg)' : 'rotate(0)' }}>chevron_right</span>
+              📋 Notas da Aula / Recursos
+            </button>
+
+            {showNotes && (
+              <div style={{ padding: 'var(--space-4)', background: 'rgba(15,23,42,0.3)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '8px' }}>
+                {/* Description text */}
+                {activeLesson.description && (
+                  <div>
+                    <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', marginBottom: '8px', color: 'var(--accent-cyan)' }}>Descrição</h4>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0 }}>{activeLesson.description}</p>
+                  </div>
+                )}
+
+                {/* Download link if video lesson also has download */}
+                {activeLesson.downloadUrl && activeLesson.type !== 'download' && (
+                  <div>
+                    <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', marginBottom: '8px', color: '#fbbf24' }}>📥 Arquivo para Download</h4>
+                    <a
+                      href={activeLesson.downloadUrl}
+                      download={activeLesson.downloadName || true}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-sm btn-outline"
+                      style={{ display: 'inline-flex', gap: '6px', textDecoration: 'none', borderColor: 'rgba(245,158,11,0.3)', color: '#fbbf24' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span>
+                      {activeLesson.downloadName || 'Baixar arquivo'}
+                    </a>
+                  </div>
+                )}
+
+                {/* Code blocks if video lesson also has code */}
+                {activeLesson.codeBlocks && activeLesson.type !== 'code' && (
+                  <div>
+                    <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', marginBottom: '8px', color: '#34d399' }}>💻 Código de Referência</h4>
+                    {activeLesson.codeBlocks.map((block, bIdx) => (
+                      <div key={bIdx} style={{ marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.4)', padding: '6px 12px', borderRadius: '4px 4px 0 0', border: '1px solid rgba(255,255,255,0.05)', borderBottom: 'none' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{block.filename || block.language}</span>
+                          <button
+                            onClick={() => handleCopyCode(block.code, 100 + bIdx)}
+                            style={{ background: 'transparent', border: 'none', color: copiedIndex === 100 + bIdx ? '#34d399' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>{copiedIndex === 100 + bIdx ? 'check' : 'content_copy'}</span>
+                            {copiedIndex === 100 + bIdx ? 'Copiado!' : 'Copiar'}
+                          </button>
+                        </div>
+                        <pre style={{ margin: 0, padding: '12px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '0 0 4px 4px', overflow: 'auto', maxHeight: '300px' }}>
+                          <code style={{ color: '#a5f3fc', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.5 }}>{block.code}</code>
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
       </section>
     </main>
