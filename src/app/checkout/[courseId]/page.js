@@ -232,7 +232,7 @@ function CheckoutContent() {
           <p style={{ color: 'var(--text-secondary)' }}>Escolha a forma de pagamento para liberação imediata</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-8)' }} className="checkout-layout">
+        <div style={{ display: 'grid', gap: 'var(--space-8)' }} className="checkout-layout">
           
           {/* Payment Method Column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>

@@ -174,7 +174,7 @@ export default function CursoDetalhePage() {
         </div>
 
         {/* Detailed Hero Layout */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-8)' }} className="course-detail-layout">
+        <div style={{ display: 'grid', gap: 'var(--space-8)' }} className="course-detail-layout">
           
           {/* Main Info Column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
@@ -384,7 +384,7 @@ export default function CursoDetalhePage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--space-10)', alignItems: 'start' }} className="reviews-layout">
+          <div style={{ display: 'grid', gap: 'var(--space-10)', alignItems: 'start' }} className="reviews-layout">
             
             {/* Left side: Add Review form (if completed and hasn't reviewed yet) */}
             <div style={{ background: 'rgba(15,23,42,0.45)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
@@ -418,7 +418,7 @@ export default function CursoDetalhePage() {
                           onClick={() => setFormRating(star)}
                           style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#ffb000' }}
                         >
-                          <span className="material-symbols-outlined" style={{ fontSize: '28px', fontVariationSettings: `"FILL" ${star <= formRating ? 1 : 0}` }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '28px', pointerEvents: 'none', fontVariationSettings: `"FILL" ${star <= formRating ? 1 : 0}` }}>
                             star
                           </span>
                         </button>

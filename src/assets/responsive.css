@@ -52,3 +52,33 @@
     padding: 0;
   }
 }
+
+/* --- Mobile Responsiveness Overrides for Player, Course Detail & Checkout --- */
+@media (max-width: 1023px) {
+  .player-page-container {
+    flex-direction: column;
+  }
+  
+  .player-sidebar {
+    width: 100%;
+    border-right: none;
+    border-top: 1px solid var(--border-color);
+    max-height: 360px;
+    order: 2; /* Faz o menu de aulas ficar abaixo da exibição do vídeo */
+  }
+  
+  .player-content-pane {
+    padding: var(--space-4);
+    order: 1; /* Faz a área da aula ficar no topo */
+  }
+  
+  .player-media-wrapper {
+    min-height: 250px;
+  }
+}
+
+@media (max-width: 480px) {
+  .player-media-wrapper {
+    min-height: 200px;
+  }
+}

@@ -250,10 +250,10 @@ function PlayerContent() {
   };
 
   return (
-    <main style={{ paddingTop: '80px', minHeight: '90vh', background: 'var(--bg-primary)', color: 'white', display: 'flex' }} className="player-page-container">
+    <main style={{ paddingTop: '80px', minHeight: '90vh', background: 'var(--bg-primary)', color: 'white' }} className="player-page-container">
       
       {/* Sidebar: Modules Accordion */}
-      <aside style={{ width: '320px', background: 'rgba(15, 23, 42, 0.6)', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', flexShrink: 0 }} className="player-sidebar">
+      <aside className="player-sidebar">
         <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)' }}>
           <Link href="/dashboard" style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '5px', textDecoration: 'none', fontSize: 'var(--font-sm)', marginBottom: '8px' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span> Dashboard
@@ -312,12 +312,11 @@ function PlayerContent() {
         </div>
       </aside>
 
-      {/* Main Content Pane */}
-      <section style={{ flexGrow: 1, padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }} className="player-content-pane">
+      <section className="player-content-pane">
         
         {/* Video / Slide Area */}
         {/* Video / Slide / Audio Area */}
-        <div style={{ flexGrow: 1, background: '#090a0f', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }} id="player-media">
+        <div className="player-media-wrapper" id="player-media">
           {activeLesson.type === 'pdf' ? (
             <div className="pdf-viewer" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className="pdf-viewer__header" style={{ padding: 'var(--space-3) var(--space-4)', background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', fontSize: 'var(--font-sm)', alignItems: 'center' }}>
