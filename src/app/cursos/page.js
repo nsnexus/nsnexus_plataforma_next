@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { CourseCard } from '../../components/CourseCard';
 
 function CursosContent() {
-  const { courses } = useAuth();
+  const { courses, user } = useAuth();
   const searchParams = useSearchParams();
   const [activeCategory, setActiveCategory] = useState('all');
 
