@@ -21,11 +21,16 @@ function CursosContent() {
   }, [searchParams]);
 
   // Filter courses
-  const filteredCourses = activeCategory === 'all' 
+  let filteredCourses = activeCategory === 'all' 
     ? courses 
     : activeCategory === 'digital'
       ? courses.filter(c => c.type === 'ebook' || c.type === 'audiobook' || c.type === 'pdf')
       : courses.filter(c => c.category === activeCategory);
+
+  // Hide enrolled courses if user is logged in
+  if (user && user.enrolledCourses) {
+    filteredCourses = filteredCourses.filter(c => !user.enrolledCourses.includes(c.id));
+  }
 
   return (
     <main style={{ paddingTop: '100px', minHeight: '80vh', background: 'var(--bg-primary)' }}>

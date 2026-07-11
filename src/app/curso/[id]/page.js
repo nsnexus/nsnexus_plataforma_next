@@ -147,6 +147,18 @@ export default function CursoDetalhePage() {
     }
   }, [user, course]);
 
+  // Capture referral ref ID
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const ref = urlParams.get('ref');
+      if (ref) {
+        localStorage.setItem('referral_user_id', ref);
+        console.log("Referral user ID captured:", ref);
+      }
+    }
+  }, []);
+
   if (!course) {
     return (
       <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: 'white' }}>

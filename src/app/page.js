@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useAuth } from '../context/AuthContext';
 import { COURSES_DATA, SERVICES_DATA, TESTIMONIALS_DATA } from '../data/platformData';
 import { CourseCard } from '../components/CourseCard';
 import { ServiceCard } from '../components/ServiceCard';
@@ -151,6 +152,7 @@ const SHOWCASE_PROJECTS = [
 ];
 
 export default function Home() {
+  const { user } = useAuth();
   const [projects, setProjects] = useState([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [modalVideo, setModalVideo] = useState(null);
@@ -415,7 +417,9 @@ export default function Home() {
   }, []);
 
   // Featured lists
-  const featuredCourses = COURSES_DATA.slice(0, 3);
+  const featuredCourses = user && user.enrolledCourses
+    ? COURSES_DATA.filter(c => !user.enrolledCourses.includes(c.id)).slice(0, 3)
+    : COURSES_DATA.slice(0, 3);
   const featuredServices = SERVICES_DATA;
 
   // Open video modal

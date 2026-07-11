@@ -7,7 +7,7 @@ export const runtime = 'edge';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { userId, courseId, courseTitle, ...paymentData } = body;
+    const { userId, courseId, courseTitle, refUserId, ...paymentData } = body;
 
     const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     if (!accessToken) {
@@ -86,11 +86,15 @@ export async function POST(request) {
     if (!querySnapshot.empty) {
       // Update existing purchase
       const matchedDoc = querySnapshot.docs[0];
-      await updateDoc(doc(db, 'purchases', matchedDoc.id), {
+      const updateData = {
         status: isApproved ? 'approved' : 'pending',
         payment_id: transactionId,
         updated_at: new Date().toISOString()
-      });
+      };
+      if (refUserId) {
+        updateData.ref_user_id = refUserId;
+      }
+      await updateDoc(doc(db, 'purchases', matchedDoc.id), updateData);
     } else {
       // Create new purchase record
       await addDoc(purchasesRef, {
@@ -101,6 +105,7 @@ export async function POST(request) {
         price_paid: Number(paymentData.transaction_amount),
         status: isApproved ? 'approved' : 'pending',
         payment_id: transactionId,
+        ref_user_id: refUserId || null,
         created_at: new Date().toISOString()
       });
     }

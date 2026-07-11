@@ -1,11 +1,13 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
+import { db } from '../../utils/firebase/client';
+import { collection, query, where, getDocs } from 'firebase/firestore/lite';
 
 export default function LoginPage() {
-  const { signIn, signInWithGoogle, resetPassword } = useAuth();
+  const { user, signIn, signInWithGoogle, resetPassword } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -19,13 +21,28 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      const redirect = localStorage.getItem("post_login_redirect");
+      if (redirect) {
+        localStorage.removeItem("post_login_redirect");
+        window.location.href = redirect;
+      } else if (user.enrolledCourses && user.enrolledCourses.length > 0) {
+        window.location.href = '/dashboard';
+      } else {
+        window.location.href = '/cursos';
+      }
+    }
+  }, [user]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      const loggedUser = await signIn(email, password);
       
       // Redirect after login using window.location for reliable navigation
       const redirect = localStorage.getItem("post_login_redirect");
@@ -33,7 +50,15 @@ export default function LoginPage() {
         localStorage.removeItem("post_login_redirect");
         window.location.href = redirect;
       } else {
-        window.location.href = '/dashboard';
+        // Fetch approved purchases to see if user has bought any courses
+        const purchasesRef = collection(db, 'purchases');
+        const pq = query(purchasesRef, where('user_id', '==', loggedUser.uid), where('status', '==', 'approved'));
+        const purchasesSnapshot = await getDocs(pq);
+        if (!purchasesSnapshot.empty) {
+          window.location.href = '/dashboard';
+        } else {
+          window.location.href = '/cursos';
+        }
       }
     } catch (err) {
       console.error(err);
@@ -62,7 +87,7 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setError('');
     try {
-      await signInWithGoogle();
+      const loggedUser = await signInWithGoogle();
       
       // Redirect after Google login
       const redirect = localStorage.getItem("post_login_redirect");
@@ -70,7 +95,15 @@ export default function LoginPage() {
         localStorage.removeItem("post_login_redirect");
         window.location.href = redirect;
       } else {
-        window.location.href = '/dashboard';
+        // Fetch approved purchases
+        const purchasesRef = collection(db, 'purchases');
+        const pq = query(purchasesRef, where('user_id', '==', loggedUser.uid), where('status', '==', 'approved'));
+        const purchasesSnapshot = await getDocs(pq);
+        if (!purchasesSnapshot.empty) {
+          window.location.href = '/dashboard';
+        } else {
+          window.location.href = '/cursos';
+        }
       }
     } catch (err) {
       console.error(err);

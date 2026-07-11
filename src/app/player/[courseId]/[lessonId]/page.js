@@ -41,6 +41,7 @@ function PlayerContent() {
   const [playbackRate, setPlaybackRate] = useState(1);
   const [volume, setVolume] = useState(1);
   const [readerFontSize, setReaderFontSize] = useState(16);
+  const [mobileSyllabusOpen, setMobileSyllabusOpen] = useState(false);
 
   // Video proxy state (protects YouTube URL)
   const [proxyEmbedUrl, setProxyEmbedUrl] = useState('');
@@ -253,14 +254,23 @@ function PlayerContent() {
     <main style={{ paddingTop: '80px', minHeight: '90vh', background: 'var(--bg-primary)', color: 'white' }} className="player-page-container">
       
       {/* Sidebar: Modules Accordion */}
-      <aside className="player-sidebar">
-        <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)' }}>
-          <Link href="/dashboard" style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '5px', textDecoration: 'none', fontSize: 'var(--font-sm)', marginBottom: '8px' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span> Dashboard
-          </Link>
-          <h2 style={{ fontSize: 'var(--font-md)', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={course.title}>
-            {course.title}
-          </h2>
+      <aside className={`player-sidebar ${mobileSyllabusOpen ? 'player-sidebar--open' : ''}`}>
+        <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <Link href="/dashboard" style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '5px', textDecoration: 'none', fontSize: 'var(--font-sm)', marginBottom: '8px' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span> Dashboard
+            </Link>
+            <h2 style={{ fontSize: 'var(--font-md)', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }} title={course.title}>
+              {course.title}
+            </h2>
+          </div>
+          <button 
+            className="mobile-syllabus-close"
+            onClick={() => setMobileSyllabusOpen(false)}
+            style={{ display: 'none', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '20px', padding: 0 }}
+          >
+            ✕
+          </button>
         </div>
 
         <div style={{ overflowY: 'auto', flexGrow: 1 }} id="player-syllabus">
@@ -278,6 +288,7 @@ function PlayerContent() {
                     <Link 
                       key={les.id} 
                       href={`/player/${courseId}/${les.id}`} 
+                      onClick={() => setMobileSyllabusOpen(false)}
                       className={`player-les ${isActive ? 'player-les--active' : ''}`}
                       style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: 'var(--space-3) var(--space-4)', textDecoration: 'none', borderBottom: '1px solid rgba(255,255,255,0.02)' }}
                     >
@@ -313,6 +324,21 @@ function PlayerContent() {
       </aside>
 
       <section className="player-content-pane">
+        
+        {/* Mobile Top Navigation Bar */}
+        <div className="player-mobile-header" style={{ display: 'none', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+          <Link href="/dashboard" style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '5px', textDecoration: 'none', fontSize: 'var(--font-sm)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span> Voltar
+          </Link>
+          <button 
+            className="btn btn-sm btn-outline"
+            onClick={() => setMobileSyllabusOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>menu</span>
+            Aulas / Módulos
+          </button>
+        </div>
         
         {/* Video / Slide Area */}
         {/* Video / Slide / Audio Area */}
@@ -955,6 +981,20 @@ function PlayerContent() {
         )}
 
       </section>
+
+      {/* Mobile Syllabus Drawer Overlay */}
+      {mobileSyllabusOpen && (
+        <div 
+          onClick={() => setMobileSyllabusOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1040
+          }}
+        />
+      )}
     </main>
   );
 }

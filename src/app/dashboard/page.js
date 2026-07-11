@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { db } from '../../utils/firebase/client';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore/lite';
+import { collection, query, where, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore/lite';
 
 function DashboardContent() {
   const { user, courses, reloadUser } = useAuth();
@@ -18,6 +18,16 @@ function DashboardContent() {
   const [editCargo, setEditCargo] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [checkingPaymentId, setCheckingPaymentId] = useState(null);
+
+  // Gamification & referrals state
+  const [referralsCount, setReferralsCount] = useState(0);
+
+  // Review modal state
+  const [selectedReviewCourse, setSelectedReviewCourse] = useState(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   useEffect(() => {
     if (selectedCertificateCourse) {
@@ -147,6 +157,7 @@ function DashboardContent() {
     }
   };
 
+  // Fetch pending purchases and auto-expire items older than 24 hours
   useEffect(() => {
     if (user && user.id) {
       const fetchPendingPurchases = async () => {
@@ -159,9 +170,29 @@ function DashboardContent() {
           );
           const querySnapshot = await getDocs(q);
           const pending = [];
-          querySnapshot.forEach(doc => {
-            pending.push({ id: doc.id, ...doc.data() });
-          });
+          const now = new Date();
+          for (const docSnap of querySnapshot.docs) {
+            const data = docSnap.data();
+            const createdAtStr = data.created_at || data.updated_at;
+            if (createdAtStr) {
+              const createdAt = new Date(createdAtStr);
+              const diffMs = now.getTime() - createdAt.getTime();
+              const diffHours = diffMs / (1000 * 60 * 60);
+              if (diffHours >= 24) {
+                // Silently expire in database
+                try {
+                  await updateDoc(doc(db, 'purchases', docSnap.id), {
+                    status: 'expired',
+                    updated_at: now.toISOString()
+                  });
+                } catch (err) {
+                  console.error("Erro ao expirar compra:", err);
+                }
+                continue; // Skip rendering
+              }
+            }
+            pending.push({ id: docSnap.id, ...data });
+          }
           setPendingPurchases(pending);
         } catch (e) {
           console.error("Erro ao buscar compras pendentes:", e);
@@ -170,6 +201,65 @@ function DashboardContent() {
       fetchPendingPurchases();
     }
   }, [user]);
+
+  // Fetch count of successful referrals
+  useEffect(() => {
+    if (user && user.id) {
+      const fetchReferrals = async () => {
+        try {
+          const purchasesRef = collection(db, 'purchases');
+          const q = query(
+            purchasesRef,
+            where('ref_user_id', '==', user.id),
+            where('status', '==', 'approved')
+          );
+          const snap = await getDocs(q);
+          setReferralsCount(snap.size);
+        } catch (e) {
+          console.error("Erro ao buscar indicações:", e);
+        }
+      };
+      fetchReferrals();
+    }
+  }, [user]);
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedReviewCourse || !user) return;
+    setSubmittingReview(true);
+    setReviewError('');
+    try {
+      await addDoc(collection(db, 'reviews'), {
+        userId: user.id,
+        userName: user.name || 'Aluno',
+        userCargo: user.cargo || '',
+        courseId: selectedReviewCourse.id,
+        rating: reviewRating,
+        comment: reviewComment,
+        created_at: new Date().toISOString()
+      });
+      alert("Avaliação enviada com sucesso! Obrigado pelo seu feedback.");
+      setSelectedReviewCourse(null);
+      setReviewComment('');
+      setReviewRating(5);
+    } catch (err) {
+      console.error("Error submitting review:", err);
+      setReviewError("Erro ao enviar avaliação: " + err.message);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleShareReferral = (course) => {
+    if (!user) return;
+    const refLink = `${window.location.origin}/curso/${course.id}?ref=${user.id}`;
+    navigator.clipboard.writeText(refLink).then(() => {
+      alert(`🔗 Link de indicação copiado com sucesso para o curso "${course.title}"!\n\nEnvie para seus amigos. Se 3 amigos comprarem através dele, você ganha a Mentoria Individual Grátis!`);
+    }).catch(err => {
+      console.error("Erro ao copiar link:", err);
+      alert(`Link de indicação: ${refLink}`);
+    });
+  };
 
   // Auto-verify all pending payments in background when dashboard loads
   useEffect(() => {
@@ -352,6 +442,51 @@ function DashboardContent() {
           )}
         </div>
 
+        {/* Indique & Ganhe Mission */}
+        {user && (
+          <div style={{
+            background: 'rgba(0, 245, 212, 0.05)',
+            border: '1px solid rgba(0, 245, 212, 0.15)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-6)',
+            marginBottom: 'var(--space-8)'
+          }}>
+            <h3 style={{ fontSize: 'var(--font-md)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-cyan)', margin: '0 0 5px 0' }}>
+              <span className="material-symbols-outlined">rocket_launch</span>
+              Missão Indique & Ganhe
+            </h3>
+            <p style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', margin: '0 0 15px 0', lineHeight: 1.4 }}>
+              Indique 3 amigos usando seu link exclusivo e ganhe uma <strong>Mentoria Individual Gratuita</strong>!
+            </p>
+            
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', fontSize: 'var(--font-sm)' }}>
+              <span>Progresso das indicações confirmadas:</span>
+              <span style={{ fontWeight: 'bold', color: referralsCount >= 3 ? 'var(--accent-cyan)' : 'white' }}>
+                {referralsCount >= 3 ? '🎉 Completa!' : `${referralsCount} de 3 amigos`}
+              </span>
+            </div>
+            
+            <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden', marginBottom: '15px' }}>
+              <div style={{
+                width: `${Math.min(100, (referralsCount / 3) * 100)}%`,
+                height: '100%',
+                background: referralsCount >= 3 ? 'var(--accent-cyan)' : 'linear-gradient(90deg, var(--accent-blue), var(--accent-cyan))',
+                transition: 'width 0.3s'
+              }}></div>
+            </div>
+
+            {referralsCount >= 3 ? (
+              <div style={{ background: 'rgba(0, 245, 212, 0.1)', border: '1px solid var(--accent-cyan)', padding: '12px 15px', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-xs)', color: 'var(--accent-cyan)', lineHeight: 1.5 }}>
+                <strong>🚀 MISSÃO CUMPRIDA!</strong> Você indicou {referralsCount} amigos com sucesso e conquistou a sua Mentoria Individual Grátis! Fale com o suporte clicando no balão de bate-papo da Fabi no canto inferior direito para agendar.
+              </div>
+            ) : (
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+                Dica: Clique em "Indicar" no card de qualquer curso abaixo para gerar seu link de recomendação.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Pending Purchases Alert */}
         {pendingPurchases.length > 0 && (
           <div style={{
@@ -475,6 +610,49 @@ function DashboardContent() {
                           <Link href={getContinueLink(course)} className="btn btn-primary btn-full" style={{ justifyContent: 'center' }}>
                             {completedCount > 0 ? 'Continuar Curso' : 'Iniciar Curso'}
                           </Link>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
+                            <button 
+                              onClick={() => handleShareReferral(course)}
+                              className="btn btn-sm btn-outline"
+                              style={{ 
+                                justifyContent: 'center', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '4px', 
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                padding: '6px 10px',
+                                borderRadius: '4px'
+                              }}
+                              title="Compartilhar link de indicação"
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>share</span>
+                              Indicar
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setReviewRating(5);
+                                setReviewComment('');
+                                setReviewError('');
+                                setSelectedReviewCourse(course);
+                              }}
+                              className="btn btn-sm btn-outline"
+                              style={{ 
+                                justifyContent: 'center', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '4px', 
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                padding: '6px 10px',
+                                borderRadius: '4px'
+                              }}
+                              title="Avaliar este curso"
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>star</span>
+                              Avaliar
+                            </button>
+                          </div>
                           {(percentage === 100 || user.completedCourses?.includes(course.id)) && (
                             <button 
                               onClick={() => setSelectedCertificateCourse(course)}
@@ -1001,6 +1179,126 @@ function DashboardContent() {
                   style={{ padding: '8px 16px', fontSize: '12px' }}
                 >
                   {savingProfile ? 'Salvando...' : 'Salvar Alterações'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Course Review Modal */}
+      {selectedReviewCourse && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-8)',
+            width: '100%',
+            maxWidth: '480px',
+            boxShadow: 'var(--shadow-cyan-glow)',
+            position: 'relative'
+          }}>
+            <button 
+              onClick={() => setSelectedReviewCourse(null)}
+              style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontSize: '18px'
+              }}
+            >
+              ✕
+            </button>
+            <h3 style={{ fontSize: 'var(--font-xl)', fontWeight: 'bold', marginBottom: '8px', color: 'white' }}>Avaliar Curso</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', marginBottom: '20px' }}>
+              Deixe seu feedback real para o curso: <strong style={{ color: 'var(--accent-cyan)' }}>{selectedReviewCourse.title}</strong>
+            </p>
+
+            {reviewError && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '10px', borderRadius: '4px', marginBottom: '15px', fontSize: 'var(--font-sm)' }}>
+                {reviewError}
+              </div>
+            )}
+
+            <form onSubmit={handleReviewSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              
+              {/* Star Rating Select */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nota (Estrelas)</label>
+                <div style={{ display: 'flex', gap: '8px', padding: '5px 0' }}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#ffb000' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '32px', pointerEvents: 'none', fontVariationSettings: `"FILL" ${star <= reviewRating ? 1 : 0}` }}>
+                        star
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Comment / Review */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Comentário / Opinião</label>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="O que você achou das aulas, didática e exemplos práticos?"
+                  required
+                  rows="4"
+                  style={{
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'white',
+                    padding: '10px 12px',
+                    fontSize: 'var(--font-sm)',
+                    outline: 'none',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              {/* Footer Buttons */}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setSelectedReviewCourse(null)} 
+                  disabled={submittingReview}
+                  className="btn btn-outline"
+                  style={{ padding: '8px 16px', fontSize: '12px', background: 'transparent', color: 'white', border: '1px solid var(--border-color)' }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={submittingReview}
+                  className="btn btn-primary"
+                  style={{ padding: '8px 16px', fontSize: '12px' }}
+                >
+                  {submittingReview ? 'Enviando...' : 'Enviar Avaliação'}
                 </button>
               </div>
             </form>

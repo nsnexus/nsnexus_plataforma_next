@@ -60,16 +60,39 @@
   }
   
   .player-sidebar {
-    width: 100%;
-    border-right: none;
-    border-top: 1px solid var(--border-color);
-    max-height: 360px;
-    order: 2; /* Faz o menu de aulas ficar abaixo da exibição do vídeo */
+    position: fixed;
+    top: 0;
+    left: -320px;
+    width: 300px;
+    max-width: 80vw;
+    height: 100vh;
+    z-index: 1050;
+    background: rgba(9, 10, 15, 0.95);
+    backdrop-filter: blur(25px);
+    border-right: 1px solid var(--border-color);
+    box-shadow: 5px 0 25px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: none;
+    order: unset;
+  }
+  
+  .player-sidebar--open {
+    left: 0 !important;
+  }
+  
+  .mobile-syllabus-close {
+    display: block !important;
+  }
+  
+  .player-mobile-header {
+    display: flex !important;
   }
   
   .player-content-pane {
     padding: var(--space-4);
-    order: 1; /* Faz a área da aula ficar no topo */
+    order: unset;
   }
   
   .player-media-wrapper {

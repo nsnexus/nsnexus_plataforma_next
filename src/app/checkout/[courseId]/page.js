@@ -93,6 +93,7 @@ function CheckoutContent() {
             onSubmit: ({ selectedPaymentMethod, formData }) => {
               return new Promise(async (resolve, reject) => {
                 try {
+                  const refUserId = typeof window !== 'undefined' ? localStorage.getItem('referral_user_id') : null;
                   const response = await fetch('/api/process-payment', {
                     method: 'POST',
                     headers: {
@@ -102,6 +103,7 @@ function CheckoutContent() {
                       userId: user.id,
                       courseId: course.id,
                       courseTitle: course.title,
+                      refUserId,
                       ...formData
                     })
                   });
@@ -168,6 +170,7 @@ function CheckoutContent() {
 
     setProcessing(true);
     try {
+      const refUserId = typeof window !== 'undefined' ? localStorage.getItem('referral_user_id') : null;
       const response = await fetch('/api/process-payment', {
         method: 'POST',
         headers: {
@@ -179,6 +182,7 @@ function CheckoutContent() {
           courseTitle: course.title,
           transaction_amount: Number(course.price),
           payment_method_id: 'pix',
+          refUserId,
           payer: {
             email: user.email
           }
