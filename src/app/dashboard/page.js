@@ -29,15 +29,6 @@ function DashboardContent() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewError, setReviewError] = useState('');
 
-  useEffect(() => {
-    if (selectedCertificateCourse) {
-      const timer = setTimeout(() => {
-        window.print();
-      }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, [selectedCertificateCourse]);
-
   const getInitials = (name) => {
     if (!name) return 'EX';
     const parts = name.split(' ');
@@ -154,6 +145,31 @@ function DashboardContent() {
       alert("Erro de conexão ao verificar pagamento.");
     } finally {
       setCheckingPaymentId(null);
+    }
+  };
+
+  const handleDownloadImage = async () => {
+    if (!selectedCertificateCourse) return;
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const element = document.getElementById('certificate-print-area');
+      if (!element) return;
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      });
+      
+      const image = canvas.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.download = `Certificado-${selectedCertificateCourse.title.replace(/\s+/g, '-')}.png`;
+      link.href = image;
+      link.click();
+    } catch (err) {
+      console.error("Erro ao gerar imagem do certificado:", err);
+      alert("Não foi possível gerar a imagem. Tente usar a opção de PDF.");
     }
   };
 
@@ -859,16 +875,18 @@ function DashboardContent() {
             visibility: visible !important;
           }
           .print-certificate-container {
-            position: relative !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
             width: 297mm !important;
             height: 210mm !important;
-            max-width: 100% !important;
-            padding: 20mm !important;
+            padding: 15mm !important;
             margin: 0 !important;
             box-shadow: none !important;
             background: #ffffff !important;
             border: none !important;
             box-sizing: border-box !important;
+            border-radius: 0 !important;
           }
           .no-print {
             display: none !important;
@@ -877,145 +895,291 @@ function DashboardContent() {
       `}</style>
 
       {/* Certificate Modal */}
-      {selectedCertificateCourse && (
-        <div 
-          className="video-modal video-modal--active print-modal-overlay" 
-          onClick={() => setSelectedCertificateCourse(null)} 
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            zIndex: 2000, 
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            background: 'rgba(0,0,0,0.8)'
-          }}
-        >
+      {selectedCertificateCourse && (() => {
+        const displayLevel = selectedCertificateCourse.level === 'Sem Programação' 
+          ? 'Desenvolvimento No-Code' 
+          : selectedCertificateCourse.level;
+
+        const displayDuration = selectedCertificateCourse.duration === 'Configuração Assistida'
+          ? '8 horas'
+          : selectedCertificateCourse.duration;
+
+        return (
           <div 
-            className="print-certificate-container"
-            onClick={(e) => e.stopPropagation()} 
+            className="video-modal video-modal--active print-modal-overlay" 
+            onClick={() => setSelectedCertificateCourse(null)} 
             style={{ 
-              maxWidth: '850px', 
-              width: '95%', 
-              background: '#ffffff', 
-              color: '#0f172a',
-              padding: '40px', 
-              borderRadius: '12px', 
-              position: 'relative',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              zIndex: 2000, 
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              background: 'rgba(6, 7, 13, 0.95)',
+              backdropFilter: 'blur(8px)',
+              overflowY: 'auto',
+              padding: '20px'
             }}
           >
-            {/* Close Button (Hidden in Print) */}
-            <button 
+            {/* Scrollable container for mobile landscape fixed ratio */}
+            <div 
               className="no-print"
-              onClick={() => setSelectedCertificateCourse(null)} 
-              style={{ 
-                position: 'absolute',
-                top: '15px',
-                right: '20px',
-                background: 'transparent', 
-                border: 'none', 
-                color: '#64748b', 
-                fontSize: '28px', 
-                cursor: 'pointer',
-                lineHeight: 1
+              style={{
+                width: '100%',
+                maxWidth: '850px',
+                overflowX: 'auto',
+                display: 'flex',
+                justifyContent: 'center',
+                marginBottom: '15px'
               }}
+              onClick={(e) => e.stopPropagation()}
             >
-              &times;
-            </button>
+              <div 
+                id="certificate-print-area"
+                className="print-certificate-container"
+                style={{ 
+                  width: '842px', 
+                  height: '595px', 
+                  background: '#ffffff', 
+                  color: '#0f172a',
+                  padding: '35px', 
+                  borderRadius: '12px', 
+                  position: 'relative',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  flexShrink: 0
+                }}
+              >
+                {/* Certificate Frame/Border (Padrão NSNexus: Navy & Gold Premium) */}
+                <div style={{
+                  border: '6px double #c5a880',
+                  height: '100%',
+                  padding: '30px',
+                  borderRadius: '6px',
+                  textAlign: 'center',
+                  position: 'relative',
+                  background: '#faf9f5',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  boxSizing: 'border-box'
+                }}>
+                  
+                  {/* Decorative Corner Seals */}
+                  <div style={{ position: 'absolute', top: '10px', left: '10px', width: '25px', height: '25px', borderTop: '3px solid #c5a880', borderLeft: '3px solid #c5a880' }}></div>
+                  <div style={{ position: 'absolute', top: '10px', right: '10px', width: '25px', height: '25px', borderTop: '3px solid #c5a880', borderRight: '3px solid #c5a880' }}></div>
+                  <div style={{ position: 'absolute', bottom: '10px', left: '10px', width: '25px', height: '25px', borderBottom: '3px solid #c5a880', borderLeft: '3px solid #c5a880' }}></div>
+                  <div style={{ position: 'absolute', bottom: '10px', right: '10px', width: '25px', height: '25px', borderBottom: '3px solid #c5a880', borderRight: '3px solid #c5a880' }}></div>
 
-            {/* Certificate Border Design */}
-            <div style={{
-              border: '6px double #d97706',
-              padding: '30px',
-              borderRadius: '8px',
-              textAlign: 'center',
-              position: 'relative',
-              background: '#fcfbf7'
-            }}>
-              
-              {/* Decorative Corner Seals */}
-              <div style={{ position: 'absolute', top: '10px', left: '10px', width: '20px', height: '20px', borderTop: '2px solid #d97706', borderLeft: '2px solid #d97706' }}></div>
-              <div style={{ position: 'absolute', top: '10px', right: '10px', width: '20px', height: '20px', borderTop: '2px solid #d97706', borderRight: '2px solid #d97706' }}></div>
-              <div style={{ position: 'absolute', bottom: '10px', left: '10px', width: '20px', height: '20px', borderBottom: '2px solid #d97706', borderLeft: '2px solid #d97706' }}></div>
-              <div style={{ position: 'absolute', bottom: '10px', right: '10px', width: '20px', height: '20px', borderBottom: '2px solid #d97706', borderRight: '2px solid #d97706' }}></div>
-
-              {/* Logo/Badge */}
-              <div style={{ marginBottom: '20px' }}>
-                <span className="accent-gradient" style={{ fontSize: '24px', fontWeight: '800', fontFamily: 'var(--font-heading)', letterSpacing: '0.05em' }}>
-                  NSNEXUS
-                </span>
-                <div style={{ fontSize: '10px', textTransform: 'uppercase', color: '#64748b', marginTop: '2px', fontWeight: 'bold' }}>
-                  Treinamentos Corporativos
-                </div>
-              </div>
-
-              {/* Title */}
-              <h2 style={{ fontSize: '28px', fontFamily: 'var(--font-heading)', fontWeight: 'bold', color: '#1e293b', marginBottom: '20px', letterSpacing: '0.02em' }}>
-                CERTIFICADO DE CONCLUSÃO
-              </h2>
-
-              <p style={{ fontSize: '15px', color: '#475569', lineHeight: 1.8, maxWidth: '650px', margin: '0 auto 30px auto' }}>
-                Certificamos que o aluno(a) <strong style={{ fontSize: '18px', color: '#0f172a', borderBottom: '1px solid #cbd5e1', paddingBottom: '2px' }}>{user.name}</strong> concluiu com êxito o treinamento corporativo
-                <br />
-                <strong style={{ fontSize: '18px', color: '#d97706' }}>{selectedCertificateCourse.title}</strong>,
-                com nível de qualificação <strong style={{ color: '#0f172a' }}>{selectedCertificateCourse.level}</strong>, carga horária de <strong style={{ color: '#0f172a' }}>{selectedCertificateCourse.duration}</strong> e aproveitamento integral do conteúdo programático.
-              </p>
-
-              {/* Signatures & Info Footer */}
-              <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', marginTop: '40px', flexWrap: 'wrap', gap: '30px' }}>
-                <div>
-                  <div style={{ borderBottom: '1px solid #94a3b8', width: '200px', margin: '0 auto 8px auto' }}></div>
-                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>Coordenação Acadêmica</div>
-                  <div style={{ fontSize: '10px', color: '#64748b' }}>NSNexus Education</div>
-                </div>
-
-                {/* Seal Icon */}
-                <div style={{ width: '70px', height: '70px', borderRadius: '50%', border: '2px dashed #d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fef3c7', flexShrink: 0 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '36px', color: '#d97706' }}>workspace_premium</span>
-                </div>
-
-                <div>
-                  <div style={{ borderBottom: '1px solid #94a3b8', width: '200px', margin: '0 auto 8px auto', fontSize: '13px', color: '#334155', fontFamily: 'monospace' }}>
-                    {new Date().toLocaleDateString('pt-BR')}
+                  {/* Header (Branding & Subtitle) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <span style={{ 
+                      fontSize: '28px', 
+                      fontWeight: '900', 
+                      fontFamily: 'var(--font-heading)', 
+                      letterSpacing: '0.12em',
+                      background: 'linear-gradient(135deg, #0066ff, #00f5d4)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      display: 'inline-block'
+                    }}>
+                      NSNEXUS
+                    </span>
+                    <div style={{ 
+                      fontSize: '9px', 
+                      textTransform: 'uppercase', 
+                      color: '#64748b', 
+                      marginTop: '4px', 
+                      fontWeight: '800',
+                      letterSpacing: '0.18em'
+                    }}>
+                      Treinamentos Corporativos & Desenvolvimento No-Code
+                    </div>
                   </div>
-                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>Data de Emissão</div>
-                  <div style={{ fontSize: '10px', color: '#64748b' }}>Acesso Vitalício</div>
+
+                  {/* Title & Body */}
+                  <div>
+                    <h2 style={{ 
+                      fontSize: '32px', 
+                      fontFamily: 'var(--font-heading)', 
+                      fontWeight: '800', 
+                      color: '#0f172a', 
+                      marginBottom: '15px', 
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase'
+                    }}>
+                      CERTIFICADO DE CONCLUSÃO
+                    </h2>
+
+                    <p style={{ 
+                      fontSize: '15px', 
+                      color: '#475569', 
+                      lineHeight: 1.8, 
+                      maxWidth: '700px', 
+                      margin: '0 auto',
+                      fontFamily: 'var(--font-body)'
+                    }}>
+                      Certificamos, para os devidos fins de comprovação e registro, que o(a) aluno(a)
+                      <br />
+                      <strong style={{ fontSize: '21px', color: '#0f172a', borderBottom: '2px solid #c5a880', paddingBottom: '2px', display: 'inline-block', margin: '4px 0' }}>{user.name}</strong>
+                      <br />
+                      concluiu com êxito o treinamento corporativo de capacitação profissional em
+                      <br />
+                      <strong style={{ fontSize: '20px', color: '#0066ff', display: 'inline-block', margin: '6px 0' }}>{selectedCertificateCourse.title}</strong>,
+                      <br />
+                      com nível de qualificação <strong style={{ color: '#0f172a' }}>{displayLevel}</strong>, carga horária total de <strong style={{ color: '#0f172a' }}>{displayDuration}</strong> e aproveitamento integral de todo o conteúdo programático.
+                    </p>
+                  </div>
+
+                  {/* Footer (Signatures, Seal, Date) */}
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-around', 
+                    alignItems: 'center', 
+                    marginTop: '15px', 
+                    padding: '0 20px' 
+                  }}>
+                    {/* Left: Signature */}
+                    <div style={{ textAlign: 'center', width: '220px' }}>
+                      <div style={{ 
+                        fontFamily: "'Alex Brush', cursive", 
+                        fontSize: '36px', 
+                        color: '#0f2d59',
+                        height: '45px',
+                        lineHeight: '45px',
+                        marginBottom: '2px',
+                        transform: 'rotate(-2deg)',
+                        userSelect: 'none'
+                      }}>
+                        Narciso Santos
+                      </div>
+                      <div style={{ borderBottom: '1px solid #c5a880', width: '200px', margin: '0 auto 6px auto' }}></div>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1e293b' }}>Narciso Santos</div>
+                      <div style={{ fontSize: '9px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Direção Acadêmica</div>
+                    </div>
+
+                    {/* Center: Seal Badge */}
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <div style={{ 
+                        width: '80px', 
+                        height: '80px', 
+                        borderRadius: '50%', 
+                        border: '3px double #c5a880', 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        background: 'radial-gradient(circle, #fef3c7 0%, #fde68a 100%)', 
+                        boxShadow: '0 4px 10px rgba(197, 168, 128, 0.2)',
+                        flexShrink: 0,
+                        position: 'relative'
+                      }}>
+                        <div style={{
+                          position: 'absolute',
+                          width: '70px',
+                          height: '70px',
+                          borderRadius: '50%',
+                          border: '1px dashed #d97706',
+                        }}></div>
+                        <span className="material-symbols-outlined" style={{ fontSize: '32px', color: '#d97706', zIndex: 2 }}>workspace_premium</span>
+                        <div style={{ fontSize: '7px', fontWeight: 'bold', color: '#d97706', zIndex: 2, marginTop: '-2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          OFFICIAL
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Date */}
+                    <div style={{ textAlign: 'center', width: '220px' }}>
+                      <div style={{ 
+                        height: '45px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        fontSize: '15px',
+                        color: '#1e293b',
+                        fontWeight: '600',
+                        fontFamily: 'monospace'
+                      }}>
+                        {new Date().toLocaleDateString('pt-BR')}
+                      </div>
+                      <div style={{ borderBottom: '1px solid #c5a880', width: '200px', margin: '0 auto 6px auto' }}></div>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1e293b' }}>Data de Emissão</div>
+                      <div style={{ fontSize: '9px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acesso Vitalício</div>
+                    </div>
+                  </div>
+
+                  {/* Authenticity Hash */}
+                  <div style={{ fontSize: '9px', color: '#94a3b8', marginTop: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Código de Autenticidade: <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: '#64748b' }}>NS-{selectedCertificateCourse.id.substring(0,4).toUpperCase()}-{user.id.substring(0,6).toUpperCase()}</span>
+                  </div>
+
                 </div>
               </div>
-
-              {/* Authenticity Hash */}
-              <div style={{ fontSize: '9px', color: '#94a3b8', marginTop: '35px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Código de Autenticidade: <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>NS-{selectedCertificateCourse.id.substring(0,4).toUpperCase()}-{user.id.substring(0,6).toUpperCase()}</span>
-              </div>
-
             </div>
 
-            {/* Print & Close Controls (Hidden in Print) */}
-            <div className="no-print" style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end', marginTop: '20px' }}>
+            {/* Control Buttons (Hidden in Print) */}
+            <div className="no-print" style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap', width: '100%', maxWidth: '850px', marginTop: '10px' }} onClick={(e) => e.stopPropagation()}>
               <button 
                 onClick={() => setSelectedCertificateCourse(null)} 
                 className="btn btn-outline"
-                style={{ borderColor: '#cbd5e1', color: '#475569' }}
+                style={{ borderColor: 'rgba(255, 255, 255, 0.2)', color: '#f8fafc', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer' }}
               >
                 Fechar
               </button>
+              
+              <button 
+                onClick={handleDownloadImage} 
+                className="btn btn-primary"
+                style={{ 
+                  background: 'linear-gradient(135deg, #10b981, #059669)', 
+                  border: 'none', 
+                  color: 'white', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px',
+                  padding: '10px 24px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)'
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>image</span>
+                Baixar Imagem (PNG)
+              </button>
+
               <button 
                 onClick={() => window.print()} 
                 className="btn btn-primary"
-                style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ 
+                  background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', 
+                  border: 'none', 
+                  color: 'white', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px',
+                  padding: '10px 24px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.2)'
+                }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>print</span>
-                Imprimir / Salvar PDF
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>picture_as_pdf</span>
+                Salvar como PDF
               </button>
             </div>
 
           </div>
-        </div>
-      )}
+        );
+      })()}
       {/* EDIT PROFILE MODAL */}
       {showEditProfileModal && (
         <div style={{
