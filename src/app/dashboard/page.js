@@ -6,6 +6,21 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { db } from '../../utils/firebase/client';
 import { collection, query, where, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore/lite';
 
+const loadScript = (src) => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') return resolve();
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Failed to load script ${src}`));
+    document.body.appendChild(script);
+  });
+};
+
 function DashboardContent() {
   const { user, courses, reloadUser } = useAuth();
   const [activeTab, setActiveTab] = useState('courses');
@@ -277,7 +292,7 @@ function DashboardContent() {
               color: '#0f2d59',
               height: '45px',
               lineHeight: '45px',
-              marginBottom: '2px',
+              marginBottom: '-8px',
               transform: 'rotate(-2deg)',
               userSelect: 'none'
             }}>
@@ -389,6 +404,47 @@ function DashboardContent() {
     } catch (err) {
       console.error("Erro ao gerar imagem do certificado:", err);
       alert("Não foi possível gerar a imagem. Tente usar a opção de PDF.");
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!selectedCertificateCourse) return;
+    try {
+      // Load jspdf from CDN dynamically
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      const { jsPDF } = window.jspdf;
+
+      // Ensure all web fonts are loaded before capturing to canvas
+      if (typeof window !== 'undefined' && document.fonts) {
+        await document.fonts.ready;
+      }
+
+      const html2canvas = (await import('html2canvas')).default;
+      const element = document.getElementById('certificate-print-area');
+      if (!element) return;
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      
+      // A4 landscape dimensions: 297mm x 210mm
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, 297, 210);
+      pdf.save(`Certificado-${selectedCertificateCourse.title.replace(/\s+/g, '-')}.pdf`);
+    } catch (err) {
+      console.error("Erro ao gerar PDF do certificado:", err);
+      alert("Não foi possível gerar o PDF automaticamente. Tentando abrir opção de impressão...");
+      window.print();
     }
   };
 
@@ -1242,7 +1298,7 @@ function DashboardContent() {
               </button>
 
               <button 
-                onClick={() => window.print()} 
+                onClick={handleDownloadPDF} 
                 className="btn btn-primary"
                 style={{ 
                   background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', 
@@ -1259,7 +1315,7 @@ function DashboardContent() {
                 }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>picture_as_pdf</span>
-                Salvar como PDF
+                Baixar PDF
               </button>
             </div>
 
