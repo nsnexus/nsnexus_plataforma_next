@@ -249,7 +249,15 @@ function DashboardContent() {
             <br />
             <strong style={{ fontSize: '20px', color: '#0066ff', display: 'inline-block', margin: '6px 0' }}>{selectedCertificateCourse.title}</strong>,
             <br />
-            com nível de qualificação <strong style={{ color: '#0f172a' }}>{displayLevel}</strong>, carga horária total de <strong style={{ color: '#0f172a' }}>{displayDuration}</strong> e aproveitamento integral de todo o conteúdo programático.
+            {displayLevel ? (
+              <>
+                com nível de qualificação <strong style={{ color: '#0f172a' }}>{displayLevel}</strong>, carga horária total de <strong style={{ color: '#0f172a' }}>{displayDuration}</strong> e aproveitamento integral de todo o conteúdo programático.
+              </>
+            ) : (
+              <>
+                com carga horária total de <strong style={{ color: '#0f172a' }}>{displayDuration}</strong> e aproveitamento integral de todo o conteúdo programático.
+              </>
+            )}
           </p>
         </div>
 
@@ -1108,7 +1116,7 @@ function DashboardContent() {
       {/* Certificate Modal */}
       {selectedCertificateCourse && (() => {
         const displayLevel = selectedCertificateCourse.level === 'Sem Programação' 
-          ? 'Desenvolvimento No-Code' 
+          ? null 
           : selectedCertificateCourse.level;
 
         const displayDuration = selectedCertificateCourse.duration === 'Configuração Assistida'
