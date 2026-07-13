@@ -11,6 +11,18 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState('courses');
   const [pendingPurchases, setPendingPurchases] = useState([]);
   const [selectedCertificateCourse, setSelectedCertificateCourse] = useState(null);
+  const [certScale, setCertScale] = useState(1);
+
+  useEffect(() => {
+    if (!selectedCertificateCourse) return;
+    const handleResize = () => {
+      const availableWidth = Math.min(window.innerWidth - 40, 842);
+      setCertScale(availableWidth / 842);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [selectedCertificateCourse]);
 
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [editName, setEditName] = useState('');
@@ -148,9 +160,208 @@ function DashboardContent() {
     }
   };
 
+  const renderCertificateContent = (displayLevel, displayDuration) => {
+    if (!selectedCertificateCourse || !user) return null;
+    return (
+      <div style={{
+        border: '6px double #c5a880',
+        height: '100%',
+        padding: '30px',
+        borderRadius: '6px',
+        textAlign: 'center',
+        position: 'relative',
+        background: '#faf9f5',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        boxSizing: 'border-box'
+      }}>
+        
+        {/* Decorative Corner Seals */}
+        <div style={{ position: 'absolute', top: '10px', left: '10px', width: '25px', height: '25px', borderTop: '3px solid #c5a880', borderLeft: '3px solid #c5a880' }}></div>
+        <div style={{ position: 'absolute', top: '10px', right: '10px', width: '25px', height: '25px', borderTop: '3px solid #c5a880', borderRight: '3px solid #c5a880' }}></div>
+        <div style={{ position: 'absolute', bottom: '10px', left: '10px', width: '25px', height: '25px', borderBottom: '3px solid #c5a880', borderLeft: '3px solid #c5a880' }}></div>
+        <div style={{ position: 'absolute', bottom: '10px', right: '10px', width: '25px', height: '25px', borderBottom: '3px solid #c5a880', borderRight: '3px solid #c5a880' }}></div>
+
+        {/* Header (Branding & Subtitle) */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <svg width="200" height="40" viewBox="0 0 200 40" style={{ display: 'block' }}>
+            <defs>
+              <linearGradient id="logo-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#0066ff" />
+                <stop offset="100%" stopColor="#00f5d4" />
+              </linearGradient>
+            </defs>
+            <text 
+              x="50%" 
+              y="28" 
+              textAnchor="middle" 
+              fill="url(#logo-gradient)" 
+              style={{ 
+                fontFamily: 'var(--font-heading), system-ui, sans-serif', 
+                fontWeight: '900', 
+                fontSize: '28px', 
+                letterSpacing: '0.12em' 
+              }}
+            >
+              NSNEXUS
+            </text>
+          </svg>
+          <div style={{ 
+            fontSize: '9px', 
+            textTransform: 'uppercase', 
+            color: '#64748b', 
+            marginTop: '4px', 
+            fontWeight: '800',
+            letterSpacing: '0.18em'
+          }}>
+            Treinamentos Corporativos & Desenvolvimento No-Code
+          </div>
+        </div>
+
+        {/* Title & Body */}
+        <div>
+          <h2 style={{ 
+            fontSize: '32px', 
+            fontFamily: 'var(--font-heading)', 
+            fontWeight: '800', 
+            color: '#0f172a', 
+            marginBottom: '15px', 
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase'
+          }}>
+            CERTIFICADO DE CONCLUSÃO
+          </h2>
+
+          <p style={{ 
+            fontSize: '15px', 
+            color: '#475569', 
+            lineHeight: 1.8, 
+            maxWidth: '700px', 
+            margin: '0 auto',
+            fontFamily: 'var(--font-body)'
+          }}>
+            Certificamos, para os devidos fins de comprovação e registro, que o(a) aluno(a)
+            <br />
+            <strong style={{ fontSize: '21px', color: '#0f172a', borderBottom: '2px solid #c5a880', paddingBottom: '2px', display: 'inline-block', margin: '4px 0' }}>{user.name}</strong>
+            <br />
+            concluiu com êxito o treinamento corporativo de capacitação profissional em
+            <br />
+            <strong style={{ fontSize: '20px', color: '#0066ff', display: 'inline-block', margin: '6px 0' }}>{selectedCertificateCourse.title}</strong>,
+            <br />
+            com nível de qualificação <strong style={{ color: '#0f172a' }}>{displayLevel}</strong>, carga horária total de <strong style={{ color: '#0f172a' }}>{displayDuration}</strong> e aproveitamento integral de todo o conteúdo programático.
+          </p>
+        </div>
+
+        {/* Footer (Signatures, Seal, Date) */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-around', 
+          alignItems: 'center', 
+          marginTop: '15px', 
+          padding: '0 20px' 
+        }}>
+          {/* Left: Signature */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', width: '220px' }}>
+            <div style={{ 
+              fontFamily: "'Alex Brush', cursive", 
+              fontSize: '36px', 
+              color: '#0f2d59',
+              height: '45px',
+              lineHeight: '45px',
+              marginBottom: '2px',
+              transform: 'rotate(-2deg)',
+              userSelect: 'none'
+            }}>
+              Narciso Santos
+            </div>
+            <div style={{ borderBottom: '1px solid #c5a880', width: '200px', marginBottom: '6px' }}></div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1e293b' }}>Narciso Santos</div>
+            <div style={{ fontSize: '9px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Direção Acadêmica</div>
+          </div>
+
+          {/* Center: Seal Badge */}
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ 
+              width: '80px', 
+              height: '80px', 
+              borderRadius: '50%', 
+              border: '3px double #c5a880', 
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              background: 'radial-gradient(circle, #fef3c7 0%, #fde68a 100%)', 
+              boxShadow: '0 4px 10px rgba(197, 168, 128, 0.2)',
+              flexShrink: 0,
+              position: 'relative'
+            }}>
+              <div style={{
+                position: 'absolute',
+                width: '70px',
+                height: '70px',
+                borderRadius: '50%',
+                border: '1px dashed #d97706',
+              }}></div>
+              
+              {/* Premium Inline SVG Star Badge replacing material symbol font icon */}
+              <svg 
+                width="32" 
+                height="32" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="#d97706" 
+                strokeWidth="2" 
+                style={{ zIndex: 2 }}
+              >
+                <path d="M8.2 13.5 L6.5 21 L12 18.5 L17.5 21 L15.8 13.5" fill="#d97706" stroke="#d97706" strokeWidth="1" />
+                <circle cx="12" cy="9" r="6" fill="#fde68a" stroke="#d97706" strokeWidth="2" />
+                <polygon points="12 6.5 13.3 9 16 9.3 14 11 14.5 13.5 12 12.2 9.5 13.5 10 11 8 9.3 10.7 9 12 6.5" fill="#d97706" />
+              </svg>
+
+              <div style={{ fontSize: '7px', fontWeight: 'bold', color: '#d97706', zIndex: 2, marginTop: '-2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                OFFICIAL
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Date */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', width: '220px' }}>
+            <div style={{ 
+              height: '45px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              fontSize: '15px',
+              color: '#1e293b',
+              fontWeight: '600',
+              fontFamily: 'monospace'
+            }}>
+              {new Date().toLocaleDateString('pt-BR')}
+            </div>
+            <div style={{ borderBottom: '1px solid #c5a880', width: '200px', marginBottom: '6px' }}></div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1e293b' }}>Data de Emissão</div>
+            <div style={{ fontSize: '9px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acesso Vitalício</div>
+          </div>
+        </div>
+
+        {/* Authenticity Hash */}
+        <div style={{ fontSize: '9px', color: '#94a3b8', marginTop: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          Código de Autenticidade: <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: '#64748b' }}>NS-{selectedCertificateCourse.id.substring(0,4).toUpperCase()}-{user.id.substring(0,6).toUpperCase()}</span>
+        </div>
+
+      </div>
+    );
+  };
+
   const handleDownloadImage = async () => {
     if (!selectedCertificateCourse) return;
     try {
+      // Ensure all web fonts are loaded before capturing to canvas
+      if (typeof window !== 'undefined' && document.fonts) {
+        await document.fonts.ready;
+      }
+
       const html2canvas = (await import('html2canvas')).default;
       const element = document.getElementById('certificate-print-area');
       if (!element) return;
@@ -925,18 +1136,51 @@ function DashboardContent() {
               padding: '20px'
             }}
           >
-            {/* Scrollable container for mobile landscape fixed ratio */}
+            {/* Visual Preview (Scales with certScale to fit screen perfectly) */}
             <div 
               className="no-print"
               style={{
-                width: '100%',
-                maxWidth: '850px',
-                overflowX: 'auto',
-                display: 'flex',
-                justifyContent: 'center',
-                marginBottom: '15px'
+                width: `${842 * certScale}px`,
+                height: `${595 * certScale}px`,
+                overflow: 'hidden',
+                position: 'relative',
+                borderRadius: '12px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                marginBottom: '15px',
+                transition: 'all 0.2s ease',
+                flexShrink: 0
               }}
               onClick={(e) => e.stopPropagation()}
+            >
+              <div 
+                style={{ 
+                  width: '842px', 
+                  height: '595px', 
+                  background: '#ffffff', 
+                  color: '#0f172a',
+                  padding: '35px', 
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  transform: `scale(${certScale})`,
+                  transformOrigin: 'top left',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0
+                }}
+              >
+                {renderCertificateContent(displayLevel, displayDuration)}
+              </div>
+            </div>
+
+            {/* Hidden, un-scaled print area for html2canvas downloading & print media */}
+            <div 
+              style={{ 
+                position: 'absolute', 
+                left: '-9999px', 
+                top: '-9999px' 
+              }}
             >
               <div 
                 id="certificate-print-area"
@@ -947,180 +1191,14 @@ function DashboardContent() {
                   background: '#ffffff', 
                   color: '#0f172a',
                   padding: '35px', 
-                  borderRadius: '12px', 
-                  position: 'relative',
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                   boxSizing: 'border-box',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  flexShrink: 0
+                  position: 'relative'
                 }}
               >
-                {/* Certificate Frame/Border (Padrão NSNexus: Navy & Gold Premium) */}
-                <div style={{
-                  border: '6px double #c5a880',
-                  height: '100%',
-                  padding: '30px',
-                  borderRadius: '6px',
-                  textAlign: 'center',
-                  position: 'relative',
-                  background: '#faf9f5',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  boxSizing: 'border-box'
-                }}>
-                  
-                  {/* Decorative Corner Seals */}
-                  <div style={{ position: 'absolute', top: '10px', left: '10px', width: '25px', height: '25px', borderTop: '3px solid #c5a880', borderLeft: '3px solid #c5a880' }}></div>
-                  <div style={{ position: 'absolute', top: '10px', right: '10px', width: '25px', height: '25px', borderTop: '3px solid #c5a880', borderRight: '3px solid #c5a880' }}></div>
-                  <div style={{ position: 'absolute', bottom: '10px', left: '10px', width: '25px', height: '25px', borderBottom: '3px solid #c5a880', borderLeft: '3px solid #c5a880' }}></div>
-                  <div style={{ position: 'absolute', bottom: '10px', right: '10px', width: '25px', height: '25px', borderBottom: '3px solid #c5a880', borderRight: '3px solid #c5a880' }}></div>
-
-                  {/* Header (Branding & Subtitle) */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <span style={{ 
-                      fontSize: '28px', 
-                      fontWeight: '900', 
-                      fontFamily: 'var(--font-heading)', 
-                      letterSpacing: '0.12em',
-                      background: 'linear-gradient(135deg, #0066ff, #00f5d4)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      display: 'inline-block'
-                    }}>
-                      NSNEXUS
-                    </span>
-                    <div style={{ 
-                      fontSize: '9px', 
-                      textTransform: 'uppercase', 
-                      color: '#64748b', 
-                      marginTop: '4px', 
-                      fontWeight: '800',
-                      letterSpacing: '0.18em'
-                    }}>
-                      Treinamentos Corporativos & Desenvolvimento No-Code
-                    </div>
-                  </div>
-
-                  {/* Title & Body */}
-                  <div>
-                    <h2 style={{ 
-                      fontSize: '32px', 
-                      fontFamily: 'var(--font-heading)', 
-                      fontWeight: '800', 
-                      color: '#0f172a', 
-                      marginBottom: '15px', 
-                      letterSpacing: '0.04em',
-                      textTransform: 'uppercase'
-                    }}>
-                      CERTIFICADO DE CONCLUSÃO
-                    </h2>
-
-                    <p style={{ 
-                      fontSize: '15px', 
-                      color: '#475569', 
-                      lineHeight: 1.8, 
-                      maxWidth: '700px', 
-                      margin: '0 auto',
-                      fontFamily: 'var(--font-body)'
-                    }}>
-                      Certificamos, para os devidos fins de comprovação e registro, que o(a) aluno(a)
-                      <br />
-                      <strong style={{ fontSize: '21px', color: '#0f172a', borderBottom: '2px solid #c5a880', paddingBottom: '2px', display: 'inline-block', margin: '4px 0' }}>{user.name}</strong>
-                      <br />
-                      concluiu com êxito o treinamento corporativo de capacitação profissional em
-                      <br />
-                      <strong style={{ fontSize: '20px', color: '#0066ff', display: 'inline-block', margin: '6px 0' }}>{selectedCertificateCourse.title}</strong>,
-                      <br />
-                      com nível de qualificação <strong style={{ color: '#0f172a' }}>{displayLevel}</strong>, carga horária total de <strong style={{ color: '#0f172a' }}>{displayDuration}</strong> e aproveitamento integral de todo o conteúdo programático.
-                    </p>
-                  </div>
-
-                  {/* Footer (Signatures, Seal, Date) */}
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-around', 
-                    alignItems: 'center', 
-                    marginTop: '15px', 
-                    padding: '0 20px' 
-                  }}>
-                    {/* Left: Signature */}
-                    <div style={{ textAlign: 'center', width: '220px' }}>
-                      <div style={{ 
-                        fontFamily: "'Alex Brush', cursive", 
-                        fontSize: '36px', 
-                        color: '#0f2d59',
-                        height: '45px',
-                        lineHeight: '45px',
-                        marginBottom: '2px',
-                        transform: 'rotate(-2deg)',
-                        userSelect: 'none'
-                      }}>
-                        Narciso Santos
-                      </div>
-                      <div style={{ borderBottom: '1px solid #c5a880', width: '200px', margin: '0 auto 6px auto' }}></div>
-                      <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1e293b' }}>Narciso Santos</div>
-                      <div style={{ fontSize: '9px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Direção Acadêmica</div>
-                    </div>
-
-                    {/* Center: Seal Badge */}
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                      <div style={{ 
-                        width: '80px', 
-                        height: '80px', 
-                        borderRadius: '50%', 
-                        border: '3px double #c5a880', 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        background: 'radial-gradient(circle, #fef3c7 0%, #fde68a 100%)', 
-                        boxShadow: '0 4px 10px rgba(197, 168, 128, 0.2)',
-                        flexShrink: 0,
-                        position: 'relative'
-                      }}>
-                        <div style={{
-                          position: 'absolute',
-                          width: '70px',
-                          height: '70px',
-                          borderRadius: '50%',
-                          border: '1px dashed #d97706',
-                        }}></div>
-                        <span className="material-symbols-outlined" style={{ fontSize: '32px', color: '#d97706', zIndex: 2 }}>workspace_premium</span>
-                        <div style={{ fontSize: '7px', fontWeight: 'bold', color: '#d97706', zIndex: 2, marginTop: '-2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          OFFICIAL
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right: Date */}
-                    <div style={{ textAlign: 'center', width: '220px' }}>
-                      <div style={{ 
-                        height: '45px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        fontSize: '15px',
-                        color: '#1e293b',
-                        fontWeight: '600',
-                        fontFamily: 'monospace'
-                      }}>
-                        {new Date().toLocaleDateString('pt-BR')}
-                      </div>
-                      <div style={{ borderBottom: '1px solid #c5a880', width: '200px', margin: '0 auto 6px auto' }}></div>
-                      <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1e293b' }}>Data de Emissão</div>
-                      <div style={{ fontSize: '9px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acesso Vitalício</div>
-                    </div>
-                  </div>
-
-                  {/* Authenticity Hash */}
-                  <div style={{ fontSize: '9px', color: '#94a3b8', marginTop: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    Código de Autenticidade: <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: '#64748b' }}>NS-{selectedCertificateCourse.id.substring(0,4).toUpperCase()}-{user.id.substring(0,6).toUpperCase()}</span>
-                  </div>
-
-                </div>
+                {renderCertificateContent(displayLevel, displayDuration)}
               </div>
             </div>
 
