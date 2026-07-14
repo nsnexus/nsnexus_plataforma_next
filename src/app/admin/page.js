@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { db, storage } from '../../utils/firebase/client';
 import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore/lite';
@@ -109,6 +109,7 @@ function AdminContent() {
     downloadName: '',
     content: [],
     codeBlocks: [{ language: 'javascript', filename: '', code: '' }],
+    articleBlocks: [],
     description: ''
   });
   const [addToModuleIndex, setAddToModuleIndex] = useState(0);
@@ -650,6 +651,7 @@ function AdminContent() {
       downloadName: '',
       content: [],
       codeBlocks: [{ language: 'javascript', filename: '', code: '' }],
+      articleBlocks: [],
       description: ''
     });
     setShowLessonModal(true);
@@ -670,6 +672,7 @@ function AdminContent() {
       downloadName: les.downloadName || '',
       content: les.content || [],
       codeBlocks: les.codeBlocks || [{ language: 'javascript', filename: '', code: '' }],
+      articleBlocks: les.articleBlocks || [],
       description: les.description || ''
     });
     setShowLessonModal(true);
@@ -687,6 +690,7 @@ function AdminContent() {
     if (lessonData.type !== 'download') { delete lessonData.downloadUrl; delete lessonData.downloadName; }
     if (lessonData.type !== 'pdf') { delete lessonData.fileUrl; }
     if (lessonData.type !== 'text' && !lessonData.content?.length) { delete lessonData.content; }
+    if (lessonData.type !== 'article') { delete lessonData.articleBlocks; }
     if (!lessonData.description) { delete lessonData.description; }
 
     setContentSyllabus(prev => {
@@ -1969,6 +1973,7 @@ function AdminContent() {
                     style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
                   >
                     <option value="video">🎬 Vídeo (YouTube / Vimeo / Panda)</option>
+                    <option value="article">📑 Artigo / Tutorial (Blocos mistos)</option>
                     <option value="code">💻 Código (Blocos de código)</option>
                     <option value="download">📥 Arquivo para Download</option>
                     <option value="text">📝 Texto / Leitura</option>
@@ -2209,6 +2214,138 @@ function AdminContent() {
                         placeholder="// Cole ou escreva o código aqui..."
                         style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.6)', border: '1px solid var(--border-color)', color: '#a5f3fc', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' }}
                       />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ARTICLE */}
+              {lessonForm.type === 'article' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(56,189,248,0.05)', border: '1px solid rgba(56,189,248,0.15)', borderRadius: '8px', padding: '15px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 'bold' }}>📑 Construtor de Artigo / Tutorial</label>
+                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <button type="button" onClick={() => setLessonForm({ ...lessonForm, articleBlocks: [...(lessonForm.articleBlocks || []), { type: 'heading', content: '' }] })} style={{ background: 'transparent', border: '1px solid rgba(56,189,248,0.3)', color: '#38bdf8', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>+ Título</button>
+                      <button type="button" onClick={() => setLessonForm({ ...lessonForm, articleBlocks: [...(lessonForm.articleBlocks || []), { type: 'text', content: '' }] })} style={{ background: 'transparent', border: '1px solid rgba(56,189,248,0.3)', color: '#38bdf8', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>+ Texto</button>
+                      <button type="button" onClick={() => setLessonForm({ ...lessonForm, articleBlocks: [...(lessonForm.articleBlocks || []), { type: 'code', language: 'javascript', content: '' }] })} style={{ background: 'transparent', border: '1px solid rgba(56,189,248,0.3)', color: '#38bdf8', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>+ Código</button>
+                      <button type="button" onClick={() => setLessonForm({ ...lessonForm, articleBlocks: [...(lessonForm.articleBlocks || []), { type: 'image', url: '', caption: '' }] })} style={{ background: 'transparent', border: '1px solid rgba(56,189,248,0.3)', color: '#38bdf8', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>+ Imagem</button>
+                      <button type="button" onClick={() => setLessonForm({ ...lessonForm, articleBlocks: [...(lessonForm.articleBlocks || []), { type: 'callout', content: '', variant: 'info' }] })} style={{ background: 'transparent', border: '1px solid rgba(56,189,248,0.3)', color: '#38bdf8', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>+ Alerta</button>
+                      <button type="button" onClick={() => setLessonForm({ ...lessonForm, articleBlocks: [...(lessonForm.articleBlocks || []), { type: 'divider' }] })} style={{ background: 'transparent', border: '1px solid rgba(56,189,248,0.3)', color: '#38bdf8', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>+ Separador</button>
+                    </div>
+                  </div>
+
+                  {(!lessonForm.articleBlocks || lessonForm.articleBlocks.length === 0) && (
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '12px', border: '1px dashed rgba(56,189,248,0.2)', borderRadius: '6px' }}>
+                      Nenhum bloco adicionado. Comece adicionando um título ou texto.
+                    </div>
+                  )}
+
+                  {(lessonForm.articleBlocks || []).map((block, bIdx) => (
+                    <div key={bIdx} style={{ border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', padding: '12px', background: 'rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                          Bloco {bIdx + 1}: {block.type}
+                        </span>
+                        <div style={{ display: 'flex', gap: '5px' }}>
+                          {bIdx > 0 && (
+                            <button type="button" onClick={() => {
+                              const updated = [...lessonForm.articleBlocks];
+                              [updated[bIdx], updated[bIdx - 1]] = [updated[bIdx - 1], updated[bIdx]];
+                              setLessonForm({ ...lessonForm, articleBlocks: updated });
+                            }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}>↑</button>
+                          )}
+                          {bIdx < lessonForm.articleBlocks.length - 1 && (
+                            <button type="button" onClick={() => {
+                              const updated = [...lessonForm.articleBlocks];
+                              [updated[bIdx], updated[bIdx + 1]] = [updated[bIdx + 1], updated[bIdx]];
+                              setLessonForm({ ...lessonForm, articleBlocks: updated });
+                            }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}>↓</button>
+                          )}
+                          <button type="button" onClick={() => {
+                            const updated = lessonForm.articleBlocks.filter((_, i) => i !== bIdx);
+                            setLessonForm({ ...lessonForm, articleBlocks: updated });
+                          }} style={{ background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}>✕</button>
+                        </div>
+                      </div>
+
+                      {/* Render block fields based on type */}
+                      {block.type === 'heading' && (
+                        <input type="text" value={block.content || ''} onChange={(e) => {
+                          const updated = [...lessonForm.articleBlocks];
+                          updated[bIdx] = { ...updated[bIdx], content: e.target.value };
+                          setLessonForm({ ...lessonForm, articleBlocks: updated });
+                        }} placeholder="Subtítulo..." style={{ padding: '8px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold' }} />
+                      )}
+
+                      {block.type === 'text' && (
+                        <textarea rows="4" value={block.content || ''} onChange={(e) => {
+                          const updated = [...lessonForm.articleBlocks];
+                          updated[bIdx] = { ...updated[bIdx], content: e.target.value };
+                          setLessonForm({ ...lessonForm, articleBlocks: updated });
+                        }} placeholder="Texto livre..." style={{ padding: '8px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontSize: '12px', resize: 'vertical' }} />
+                      )}
+
+                      {block.type === 'code' && (
+                        <>
+                          <select value={block.language || 'javascript'} onChange={(e) => {
+                            const updated = [...lessonForm.articleBlocks];
+                            updated[bIdx] = { ...updated[bIdx], language: e.target.value };
+                            setLessonForm({ ...lessonForm, articleBlocks: updated });
+                          }} style={{ padding: '6px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontSize: '11px', width: 'fit-content' }}>
+                            <option value="javascript">JavaScript</option>
+                            <option value="html">HTML</option>
+                            <option value="css">CSS</option>
+                            <option value="python">Python</option>
+                            <option value="bash">Bash / Shell</option>
+                            <option value="json">JSON</option>
+                          </select>
+                          <textarea rows="5" value={block.content || ''} onChange={(e) => {
+                            const updated = [...lessonForm.articleBlocks];
+                            updated[bIdx] = { ...updated[bIdx], content: e.target.value };
+                            setLessonForm({ ...lessonForm, articleBlocks: updated });
+                          }} placeholder="// Código..." style={{ padding: '8px', background: 'rgba(0,0,0,0.6)', border: '1px solid var(--border-color)', color: '#a5f3fc', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }} />
+                        </>
+                      )}
+
+                      {block.type === 'image' && (
+                        <>
+                          <input type="text" value={block.url || ''} onChange={(e) => {
+                            const updated = [...lessonForm.articleBlocks];
+                            updated[bIdx] = { ...updated[bIdx], url: e.target.value };
+                            setLessonForm({ ...lessonForm, articleBlocks: updated });
+                          }} placeholder="URL da imagem (ex: https://.../img.jpg)" style={{ padding: '8px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontSize: '12px' }} />
+                          <input type="text" value={block.caption || ''} onChange={(e) => {
+                            const updated = [...lessonForm.articleBlocks];
+                            updated[bIdx] = { ...updated[bIdx], caption: e.target.value };
+                            setLessonForm({ ...lessonForm, articleBlocks: updated });
+                          }} placeholder="Legenda da imagem (opcional)" style={{ padding: '8px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontSize: '11px' }} />
+                        </>
+                      )}
+
+                      {block.type === 'callout' && (
+                        <>
+                          <select value={block.variant || 'info'} onChange={(e) => {
+                            const updated = [...lessonForm.articleBlocks];
+                            updated[bIdx] = { ...updated[bIdx], variant: e.target.value };
+                            setLessonForm({ ...lessonForm, articleBlocks: updated });
+                          }} style={{ padding: '6px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontSize: '11px', width: 'fit-content' }}>
+                            <option value="info">💡 Informação</option>
+                            <option value="warning">⚠️ Aviso</option>
+                            <option value="success">✅ Sucesso</option>
+                            <option value="danger">🚨 Perigo</option>
+                          </select>
+                          <textarea rows="3" value={block.content || ''} onChange={(e) => {
+                            const updated = [...lessonForm.articleBlocks];
+                            updated[bIdx] = { ...updated[bIdx], content: e.target.value };
+                            setLessonForm({ ...lessonForm, articleBlocks: updated });
+                          }} placeholder="Texto do alerta..." style={{ padding: '8px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontSize: '12px', resize: 'vertical' }} />
+                        </>
+                      )}
+
+                      {block.type === 'divider' && (
+                        <div style={{ height: '1px', background: 'var(--border-color)', margin: '5px 0' }} />
+                      )}
+
                     </div>
                   ))}
                 </div>

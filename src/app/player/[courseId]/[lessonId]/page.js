@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../../context/AuthContext';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
+import { db } from '../../../../utils/firebase/client';
+import { doc, getDoc, setDoc } from 'firebase/firestore/lite';
 
 function getVideoEmbedUrl(url) {
   if (!url) return '';
@@ -51,8 +53,56 @@ function PlayerContent() {
   const [activeCodeTab, setActiveCodeTab] = useState(0);
   const [copiedIndex, setCopiedIndex] = useState(-1);
 
-  // Lesson notes toggle
-  const [showNotes, setShowNotes] = useState(false);
+  // Lesson resources and notes toggles
+  const [showResources, setShowResources] = useState(false);
+  const [showStudentNotes, setShowStudentNotes] = useState(false);
+  const [studentNote, setStudentNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [loadingNote, setLoadingNote] = useState(false);
+
+  useEffect(() => {
+    const fetchNote = async () => {
+      if (user && activeLesson) {
+        setLoadingNote(true);
+        try {
+          const noteId = `${user.id}_${courseId}_${activeLesson.id}`;
+          const noteRef = doc(db, 'notes', noteId);
+          const noteSnap = await getDoc(noteRef);
+          if (noteSnap.exists()) {
+            setStudentNote(noteSnap.data().content || '');
+          } else {
+            setStudentNote('');
+          }
+        } catch (err) {
+          console.error("Erro ao carregar nota", err);
+        } finally {
+          setLoadingNote(false);
+        }
+      }
+    };
+    fetchNote();
+  }, [user, courseId, activeLesson?.id]);
+
+  const handleSaveNote = async () => {
+    if (!user || !activeLesson) return;
+    setSavingNote(true);
+    try {
+      const noteId = `${user.id}_${courseId}_${activeLesson.id}`;
+      const noteRef = doc(db, 'notes', noteId);
+      await setDoc(noteRef, {
+        userId: user.id,
+        courseId,
+        lessonId: activeLesson.id,
+        content: studentNote,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.error("Erro ao salvar nota", err);
+      alert("Erro ao salvar anotação.");
+    } finally {
+      setSavingNote(false);
+    }
+  };
 
   useEffect(() => {
     if (audioRef.current) {
@@ -180,10 +230,11 @@ function PlayerContent() {
         })
         .finally(() => setLoadingProxy(false));
     }
-    // Reset code tab
+    // Reset states
     setActiveCodeTab(0);
     setCopiedIndex(-1);
-    setShowNotes(false);
+    setShowResources(false);
+    setShowStudentNotes(false);
   }, [activeLesson?.id, courseId]);
 
   const handleCopyCode = (code, index) => {
@@ -253,6 +304,20 @@ function PlayerContent() {
   return (
     <main style={{ paddingTop: '80px', minHeight: '90vh', background: 'var(--bg-primary)', color: 'white' }} className="player-page-container">
       
+      {/* Mobile Syllabus Overlay */}
+      {mobileSyllabusOpen && (
+        <div 
+          onClick={() => setMobileSyllabusOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1040
+          }}
+        />
+      )}
+
       {/* Sidebar: Modules Accordion */}
       <aside className={`player-sidebar ${mobileSyllabusOpen ? 'player-sidebar--open' : ''}`}>
         <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -678,8 +743,75 @@ function PlayerContent() {
               </div>
 
             </div>
+          ) : activeLesson.type === 'article' ? (
+            /* ===== ARTICLE / TUTORIAL VIEWER ===== */
+            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', overflowY: 'auto' }}>
+              <div style={{ padding: '40px 20px', maxWidth: '800px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                <h1 style={{ fontSize: '32px', color: 'var(--accent-cyan)', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '15px' }}>{activeLesson.title}</h1>
+                
+                {(!activeLesson.articleBlocks || activeLesson.articleBlocks.length === 0) ? (
+                  <p style={{ color: 'var(--text-muted)' }}>Esta aula ainda não possui conteúdo estruturado.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+                    {activeLesson.articleBlocks.map((block, bIdx) => {
+                      if (block.type === 'heading') {
+                        return <h2 key={bIdx} style={{ fontSize: '22px', color: 'white', fontWeight: 'bold', marginTop: '10px' }}>{block.content}</h2>;
+                      }
+                      if (block.type === 'text') {
+                        return <p key={bIdx} style={{ fontSize: '16px', color: 'rgba(255,255,255,0.85)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{block.content}</p>;
+                      }
+                      if (block.type === 'image') {
+                        return (
+                          <figure key={bIdx} style={{ margin: '10px 0', textAlign: 'center' }}>
+                            <img src={block.url} alt={block.caption || 'Imagem da aula'} style={{ maxWidth: '100%', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                            {block.caption && <figcaption style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>{block.caption}</figcaption>}
+                          </figure>
+                        );
+                      }
+                      if (block.type === 'callout') {
+                        const colors = {
+                          info: { bg: 'rgba(56,189,248,0.1)', border: '#38bdf8', icon: '💡' },
+                          warning: { bg: 'rgba(245,158,11,0.1)', border: '#f59e0b', icon: '⚠️' },
+                          success: { bg: 'rgba(16,185,129,0.1)', border: '#10b981', icon: '✅' },
+                          danger: { bg: 'rgba(239,68,68,0.1)', border: '#ef4444', icon: '🚨' }
+                        };
+                        const style = colors[block.variant || 'info'];
+                        return (
+                          <div key={bIdx} style={{ background: style.bg, borderLeft: `4px solid ${style.border}`, padding: '15px 20px', borderRadius: '4px', display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
+                            <span style={{ fontSize: '20px' }}>{style.icon}</span>
+                            <p style={{ margin: 0, fontSize: '15px', color: 'white', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{block.content}</p>
+                          </div>
+                        );
+                      }
+                      if (block.type === 'divider') {
+                        return <div key={bIdx} style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '10px 0' }} />;
+                      }
+                      if (block.type === 'code') {
+                        return (
+                          <div key={bIdx} style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', overflow: 'hidden', position: 'relative' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.4)', padding: '8px 15px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{block.language}</span>
+                              <button
+                                onClick={() => handleCopyCode(block.content, bIdx)}
+                                style={{ background: 'transparent', border: 'none', color: copiedIndex === bIdx ? '#34d399' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px' }}
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>{copiedIndex === bIdx ? 'check' : 'content_copy'}</span>
+                                {copiedIndex === bIdx ? 'Copiado!' : 'Copiar'}
+                              </button>
+                            </div>
+                            <pre style={{ margin: 0, padding: '15px', color: '#e6edf3', fontSize: '13px', lineHeight: 1.5, overflowX: 'auto', fontFamily: "'Cascadia Code', monospace" }}>
+                              <code>{block.content}</code>
+                            </pre>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           ) : activeLesson.type === 'code' ? (
-            /* ===== CODE BLOCKS VIEWER ===== */
             <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#0d1117', overflow: 'hidden' }}>
               {/* Tab bar */}
               {activeLesson.codeBlocks && activeLesson.codeBlocks.length > 0 && (
@@ -885,7 +1017,7 @@ function PlayerContent() {
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>Módulo: {course.syllabus.find(m => m.lessons?.some(l => l.id === activeLesson.id))?.moduleTitle}</p>
           </div>
           
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
             <button 
               className={`btn ${isActiveCompleted ? 'btn-secondary' : 'btn-outline'}`}
               onClick={(e) => handleToggleComplete(e, activeLesson.id)}
@@ -901,80 +1033,113 @@ function PlayerContent() {
           </div>
         </div>
 
-        {/* ===== LESSON NOTES / DESCRIPTION / DOWNLOADS ===== */}
-        {(activeLesson.description || activeLesson.downloadUrl || (activeLesson.codeBlocks && activeLesson.type !== 'code')) && (
-          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-3)' }}>
+        {/* ===== PERSONAL NOTES & RESOURCES TOGGLES ===== */}
+        <div style={{ display: 'flex', gap: '15px', borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-3)' }}>
+          <button
+            onClick={() => { setShowStudentNotes(!showStudentNotes); setShowResources(false); }}
+            className={`btn ${showStudentNotes ? 'btn-primary' : 'btn-outline'}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--font-sm)', padding: '8px 15px' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit_note</span>
+            Anotações Pessoais
+          </button>
+          
+          {(activeLesson.description || activeLesson.downloadUrl || (activeLesson.codeBlocks && activeLesson.type !== 'code')) && (
             <button
-              onClick={() => setShowNotes(!showNotes)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: 'var(--font-sm)',
-                padding: '8px 0',
-                width: '100%',
-                textAlign: 'left'
-              }}
+              onClick={() => { setShowResources(!showResources); setShowStudentNotes(false); }}
+              className={`btn ${showResources ? 'btn-primary' : 'btn-outline'}`}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--font-sm)', padding: '8px 15px' }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px', transition: 'transform 0.2s', transform: showNotes ? 'rotate(90deg)' : 'rotate(0)' }}>chevron_right</span>
-              📋 Notas da Aula / Recursos
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>folder_open</span>
+              Recursos da Aula
             </button>
+          )}
+        </div>
 
-            {showNotes && (
-              <div style={{ padding: 'var(--space-4)', background: 'rgba(15,23,42,0.3)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '8px' }}>
-                {/* Description text */}
-                {activeLesson.description && (
-                  <div>
-                    <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', marginBottom: '8px', color: 'var(--accent-cyan)' }}>Descrição</h4>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0 }}>{activeLesson.description}</p>
-                  </div>
-                )}
+        {/* ===== STUDENT NOTES PANEL ===== */}
+        {showStudentNotes && (
+          <div style={{ padding: 'var(--space-4)', background: 'rgba(15,23,42,0.6)', border: '1px solid var(--accent-cyan)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', color: 'var(--accent-cyan)', margin: 0, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit_note</span>
+                Minhas Anotações
+              </h4>
+              {loadingNote && <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Carregando...</span>}
+            </div>
+            
+            <textarea
+              rows="6"
+              value={studentNote}
+              onChange={(e) => setStudentNote(e.target.value)}
+              placeholder="Escreva suas anotações para esta aula aqui. Elas serão salvas automaticamente ao clicar em Salvar."
+              style={{ padding: '15px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '8px', fontFamily: 'inherit', resize: 'vertical', fontSize: '14px', lineHeight: 1.6 }}
+              disabled={loadingNote}
+            />
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={handleSaveNote} 
+                disabled={savingNote || loadingNote}
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{savingNote ? 'sync' : 'save'}</span>
+                {savingNote ? 'Salvando...' : 'Salvar Anotações'}
+              </button>
+            </div>
+          </div>
+        )}
 
-                {/* Download link if video lesson also has download */}
-                {activeLesson.downloadUrl && activeLesson.type !== 'download' && (
-                  <div>
-                    <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', marginBottom: '8px', color: '#fbbf24' }}>📥 Arquivo para Download</h4>
-                    <a
-                      href={activeLesson.downloadUrl}
-                      download={activeLesson.downloadName || true}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-sm btn-outline"
-                      style={{ display: 'inline-flex', gap: '6px', textDecoration: 'none', borderColor: 'rgba(245,158,11,0.3)', color: '#fbbf24' }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span>
-                      {activeLesson.downloadName || 'Baixar arquivo'}
-                    </a>
-                  </div>
-                )}
+        {/* ===== RESOURCES PANEL ===== */}
+        {showResources && (activeLesson.description || activeLesson.downloadUrl || (activeLesson.codeBlocks && activeLesson.type !== 'code')) && (
+          <div style={{ padding: 'var(--space-4)', background: 'rgba(15,23,42,0.3)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
+            {/* Description text */}
+            {activeLesson.description && (
+              <div>
+                <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', marginBottom: '8px', color: 'var(--accent-cyan)' }}>Descrição / Notas do Instrutor</h4>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0 }}>{activeLesson.description}</p>
+              </div>
+            )}
 
-                {/* Code blocks if video lesson also has code */}
-                {activeLesson.codeBlocks && activeLesson.type !== 'code' && (
-                  <div>
-                    <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', marginBottom: '8px', color: '#34d399' }}>💻 Código de Referência</h4>
-                    {activeLesson.codeBlocks.map((block, bIdx) => (
-                      <div key={bIdx} style={{ marginBottom: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.4)', padding: '6px 12px', borderRadius: '4px 4px 0 0', border: '1px solid rgba(255,255,255,0.05)', borderBottom: 'none' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{block.filename || block.language}</span>
-                          <button
-                            onClick={() => handleCopyCode(block.code, 100 + bIdx)}
-                            style={{ background: 'transparent', border: 'none', color: copiedIndex === 100 + bIdx ? '#34d399' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                          >
-                            <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>{copiedIndex === 100 + bIdx ? 'check' : 'content_copy'}</span>
-                            {copiedIndex === 100 + bIdx ? 'Copiado!' : 'Copiar'}
-                          </button>
-                        </div>
-                        <pre style={{ margin: 0, padding: '12px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '0 0 4px 4px', overflow: 'auto', maxHeight: '300px' }}>
-                          <code style={{ color: '#a5f3fc', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.5 }}>{block.code}</code>
-                        </pre>
-                      </div>
-                    ))}
+            {/* Download link if video lesson also has download */}
+            {activeLesson.downloadUrl && activeLesson.type !== 'download' && (
+              <div>
+                <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', marginBottom: '8px', color: '#fbbf24' }}>📥 Arquivo para Download</h4>
+                <a
+                  href={activeLesson.downloadUrl}
+                  download={activeLesson.downloadName || true}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-sm btn-outline"
+                  style={{ display: 'inline-flex', gap: '6px', textDecoration: 'none', borderColor: 'rgba(245,158,11,0.3)', color: '#fbbf24' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span>
+                  {activeLesson.downloadName || 'Baixar arquivo'}
+                </a>
+              </div>
+            )}
+
+            {/* Code blocks if video lesson also has code */}
+            {activeLesson.codeBlocks && activeLesson.type !== 'code' && (
+              <div>
+                <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', marginBottom: '8px', color: '#34d399' }}>💻 Código de Referência</h4>
+                {activeLesson.codeBlocks.map((block, bIdx) => (
+                  <div key={bIdx} style={{ marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.4)', padding: '6px 12px', borderRadius: '4px 4px 0 0', border: '1px solid rgba(255,255,255,0.05)', borderBottom: 'none' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{block.filename || block.language}</span>
+                      <button
+                        onClick={() => handleCopyCode(block.code, 100 + bIdx)}
+                        style={{ background: 'transparent', border: 'none', color: copiedIndex === 100 + bIdx ? '#34d399' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>{copiedIndex === 100 + bIdx ? 'check' : 'content_copy'}</span>
+                        {copiedIndex === 100 + bIdx ? 'Copiado!' : 'Copiar'}
+                      </button>
+                    </div>
+                    <pre style={{ margin: 0, padding: '12px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '0 0 4px 4px', overflow: 'auto', maxHeight: '300px' }}>
+                      <code style={{ color: '#a5f3fc', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.5 }}>{block.code}</code>
+                    </pre>
                   </div>
-                )}
+                ))}
               </div>
             )}
           </div>
