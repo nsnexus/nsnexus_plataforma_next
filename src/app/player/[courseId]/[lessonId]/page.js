@@ -512,6 +512,31 @@ function PlayerContent() {
                <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>schedule</span>
                Tempo restante: {getEstimatedTimeLeft()}
              </p>
+             
+             {/* WhatsApp Group Link */}
+             <a 
+               href="https://chat.whatsapp.com/KXwpTXV7a7A3UJRVmD1BZ3?s=cl&p=a&ilr=4"
+               target="_blank"
+               rel="noopener noreferrer"
+               style={{
+                 marginTop: '10px',
+                 padding: '6px 12px',
+                 background: '#25d366',
+                 color: 'white',
+                 borderRadius: '4px',
+                 fontSize: '11px',
+                 fontWeight: 'bold',
+                 textDecoration: 'none',
+                 display: 'inline-flex',
+                 alignItems: 'center',
+                 gap: '6px',
+                 cursor: 'pointer',
+                 boxShadow: '0 2px 8px rgba(37, 211, 102, 0.2)'
+               }}
+             >
+               <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>chat</span>
+               Grupo de Alunos
+             </a>
           </div>
           <button 
             className="mobile-syllabus-close"

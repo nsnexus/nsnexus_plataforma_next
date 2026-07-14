@@ -122,7 +122,7 @@ function CheckoutContent() {
                       reloadUser().then(() => {
                         router.push('/dashboard');
                       });
-                    }, 3500);
+                    }, 20000);
                   } else if (result.status === 'in_process') {
                     setIsPaymentInProcess(true);
                     resolve();
@@ -222,21 +222,21 @@ function CheckoutContent() {
   }
 
   return (
-    <main style={{ paddingTop: '100px', minHeight: '90vh', background: 'var(--bg-primary)', color: 'white' }}>
+    <div style={{ background: 'var(--bg-primary)', color: 'white', minHeight: '100vh', paddingTop: '100px', paddingBottom: '60px' }}>
       <Script 
         src="https://sdk.mercadopago.com/js/v2" 
         strategy="afterInteractive" 
         onLoad={() => setSdkLoaded(true)}
       />
 
-      <section className="container" style={{ paddingBottom: 'var(--space-20)' }}>
+      <div className="container" style={{ maxWidth: '1000px' }}>
         
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-10)' }}>
-          <h1 style={{ fontSize: 'var(--font-3xl)', fontWeight: 'bold' }}>Checkout Seguro</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Escolha a forma de pagamento para liberação imediata</p>
-        </div>
+        <h2 style={{ fontSize: 'var(--font-2xl)', fontWeight: 'bold', marginBottom: 'var(--space-2)' }}>Finalizar Inscrição</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--space-6)', fontSize: 'var(--font-sm)' }}>
+          Você está a um passo de acelerar sua carreira com a melhor plataforma de IA & SharePoint.
+        </p>
 
-        <div style={{ display: 'grid', gap: 'var(--space-8)' }} className="checkout-layout">
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1.2fr) minmax(280px, 0.8fr)', gap: 'var(--space-8)', alignItems: 'start' }} className="checkout-layout">
           
           {/* Payment Method Column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
@@ -260,15 +260,58 @@ function CheckoutContent() {
                   </div>
                   <h3 style={{ fontSize: 'var(--font-2xl)', fontWeight: 'bold', margin: '0' }}>Matrícula Confirmada!</h3>
                   <p style={{ fontSize: 'var(--font-md)', color: 'var(--text-secondary)', maxWidth: '450px', lineHeight: 1.6 }}>
-                    Parabéns! Seu pagamento foi processado com sucesso. O seu acesso foi liberado e você está sendo redirecionado para a plataforma...
+                    Parabéns! Seu pagamento foi processado com sucesso e o seu acesso foi liberado.
                   </p>
-                  <div className="loader" style={{ border: '3px solid rgba(255,255,255,0.1)', borderTop: '3px solid var(--accent-cyan)', borderRadius: '50%', width: '30px', height: '30px', animation: 'spin 1s linear infinite', marginTop: '15px' }}></div>
-                  <style>{`
-                    @keyframes spin {
-                      0% { transform: rotate(0deg); }
-                      100% { transform: rotate(360deg); }
-                    }
-                  `}</style>
+                  
+                  {/* WhatsApp Group Button */}
+                  <a 
+                    href="https://chat.whatsapp.com/KXwpTXV7a7A3UJRVmD1BZ3?s=cl&p=a&ilr=4"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn"
+                    style={{
+                      background: '#25d366',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      fontWeight: 'bold',
+                      fontSize: '15px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      textDecoration: 'none',
+                      marginTop: '10px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 15px rgba(37, 211, 102, 0.3)',
+                      transition: 'transform 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  >
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="white" style={{ display: 'block' }}>
+                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.437.002 9.861-4.416 9.864-9.852.002-2.633-1.02-5.107-2.88-6.97C16.376 1.91 13.91 1.88 11.278 1.88c-5.43.001-9.853 4.419-9.856 9.856-.001 1.716.473 3.393 1.378 4.887L1.69 22.097l5.76-1.511zM16.92 14.887c-.267-.134-1.583-.78-1.827-.868-.243-.088-.42-.133-.596.134-.176.265-.678.868-.831 1.045-.153.177-.306.199-.573.066-.267-.133-1.127-.415-2.148-1.325-.793-.708-1.329-1.582-1.485-1.848-.156-.266-.017-.409.117-.542.12-.12.267-.31.4-.464.133-.155.177-.266.266-.443.088-.177.044-.332-.022-.465-.066-.133-.596-1.436-.816-1.968-.215-.518-.432-.448-.597-.456-.153-.008-.33-.009-.508-.009-.177 0-.465.066-.708.332-.243.266-.93.908-.93 2.214 0 1.306.949 2.568 1.082 2.746.133.177 1.867 2.851 4.524 3.998.632.273 1.126.436 1.512.559.635.202 1.212.174 1.669.106.51-.076 1.583-.647 1.804-1.271.22-.624.22-1.161.154-1.271-.066-.109-.243-.2-.51-.334z"/>
+                    </svg>
+                    Entrar no Grupo de Alunos (WhatsApp)
+                  </a>
+
+                  <button
+                    onClick={() => {
+                      reloadUser().then(() => {
+                        router.push('/dashboard');
+                      });
+                    }}
+                    className="btn btn-outline"
+                    style={{
+                      marginTop: '10px',
+                      padding: '10px 20px',
+                      fontSize: '14px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Ir para o Painel do Aluno
+                  </button>
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Redirecionamento automático em 20 segundos...</p>
                 </div>
               )}
 

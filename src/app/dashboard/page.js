@@ -548,12 +548,23 @@ function DashboardContent() {
   const handleShareReferral = (course) => {
     if (!user) return;
     const refLink = `${window.location.origin}/curso/${course.id}?ref=${user.id}`;
-    navigator.clipboard.writeText(refLink).then(() => {
-      alert(`🔗 Link de indicação copiado com sucesso para o curso "${course.title}"!\n\nEnvie para seus amigos. Se 3 amigos comprarem através dele, você ganha a Mentoria Individual Grátis!`);
-    }).catch(err => {
-      console.error("Erro ao copiar link:", err);
-      alert(`Link de indicação: ${refLink}`);
-    });
+    
+    if (typeof window !== 'undefined' && navigator.share) {
+      navigator.share({
+        title: `Recomendação: ${course.title}`,
+        text: `Estude o curso "${course.title}" na NSNexus comigo! Inscreva-se pelo meu link de indicação:`,
+        url: refLink
+      }).catch(err => {
+        console.error("Erro ao compartilhar via Web Share:", err);
+      });
+    } else {
+      navigator.clipboard.writeText(refLink).then(() => {
+        alert(`🔗 Link de indicação copiado com sucesso para o curso "${course.title}"!\n\nEnvie para seus amigos. Se 3 amigos comprarem através dele, você ganha a Mentoria Individual Grátis!`);
+      }).catch(err => {
+        console.error("Erro ao copiar link:", err);
+        alert(`Link de indicação: ${refLink}`);
+      });
+    }
   };
 
   // Auto-verify all pending payments in background when dashboard loads
