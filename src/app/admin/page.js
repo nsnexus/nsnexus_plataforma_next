@@ -33,7 +33,12 @@ function AdminContent() {
   const [dbUsers, setDbUsers] = useState([]);
   const [dbPurchases, setDbPurchases] = useState([]);
   const [dbProjects, setDbProjects] = useState([]);
+  const [qaQuestions, setQaQuestions] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+
+  // Q&A reply state
+  const [adminReplyTextMap, setAdminReplyTextMap] = useState({});
+  const [submittingAdminReplyId, setSubmittingAdminReplyId] = useState('');
 
   // Portfolio CRUD state
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -89,6 +94,7 @@ function AdminContent() {
     level: 'Sem Programação',
     banner: 'images/sharepoint.jpeg',
     is_closed: false,
+    sequentialUnlock: false,
     syllabus: []
   });
 
@@ -110,6 +116,7 @@ function AdminContent() {
     content: [],
     codeBlocks: [{ language: 'javascript', filename: '', code: '' }],
     articleBlocks: [],
+    quizQuestions: [],
     description: ''
   });
   const [addToModuleIndex, setAddToModuleIndex] = useState(0);
@@ -210,6 +217,16 @@ function AdminContent() {
       projectsList.sort((a, b) => (a.order || 0) - (b.order || 0));
       setDbProjects(projectsList);
 
+      // 4. Fetch Q&A questions
+      const qRef = collection(db, 'questions');
+      const qSnap = await getDocs(qRef);
+      const qList = [];
+      qSnap.forEach(docSnap => {
+        qList.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      qList.sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      setQaQuestions(qList);
+
     } catch (err) {
       console.error('[Admin] Erro ao carregar dados:', err);
       alert('Erro ao buscar dados do banco de dados do Firestore.');
@@ -282,6 +299,30 @@ function AdminContent() {
       conversionRate
     };
   }, [dbUsers, dbPurchases]);
+
+  // Course popularity calculations
+  const coursePopularity = useMemo(() => {
+    const counts = {};
+    courses.forEach(c => { counts[c.id] = { title: c.title, sales: 0, completions: 0 }; });
+    
+    dbPurchases.forEach(p => {
+      if (p.status === 'approved' && counts[p.course_id]) {
+        counts[p.course_id].sales += 1;
+      }
+    });
+
+    dbUsers.forEach(u => {
+      courses.forEach(c => {
+        const total = c.syllabus?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || 0;
+        const completed = u.progress?.[c.id]?.completedLessons?.length || 0;
+        if (total > 0 && completed === total && counts[c.id]) {
+          counts[c.id].completions += 1;
+        }
+      });
+    });
+
+    return Object.keys(counts).map(key => ({ id: key, ...counts[key] })).sort((a,b) => b.sales - a.sales);
+  }, [courses, dbPurchases, dbUsers]);
 
   // Filter lists based on search term
   const filteredUsers = useMemo(() => {
@@ -393,6 +434,7 @@ function AdminContent() {
       level: 'Sem Programação',
       banner: 'images/sharepoint.jpeg',
       is_closed: false,
+      sequentialUnlock: false,
       syllabus: []
     });
     setShowCourseModal(true);
@@ -417,6 +459,7 @@ function AdminContent() {
       level: course.level || 'Sem Programação',
       banner: course.banner || 'images/sharepoint.jpeg',
       is_closed: !!course.isClosed,
+      sequentialUnlock: course.sequentialUnlock || false,
       syllabus: course.syllabus || []
     });
     setShowCourseModal(true);
@@ -450,6 +493,7 @@ function AdminContent() {
           level: courseForm.level,
           banner: courseForm.banner,
           isClosed: courseForm.is_closed,
+          sequentialUnlock: courseForm.sequentialUnlock || false,
           syllabus: courseForm.syllabus
         }, { merge: true });
 
@@ -474,6 +518,7 @@ function AdminContent() {
           level: courseForm.level,
           banner: courseForm.banner,
           isClosed: courseForm.is_closed,
+          sequentialUnlock: courseForm.sequentialUnlock || false,
           syllabus: courseForm.syllabus,
           rating: 5.0,
           reviewsCount: 0
@@ -501,6 +546,40 @@ function AdminContent() {
     } catch (err) {
       console.error(err);
       alert("Erro ao excluir curso: " + err.message);
+    }
+  };
+
+  const handleAdminPostReply = async (questionId) => {
+    const text = adminReplyTextMap[questionId];
+    if (!text || !text.trim() || !user || submittingAdminReplyId) return;
+    setSubmittingAdminReplyId(questionId);
+    try {
+      const parentQuestion = qaQuestions.find(q => q.id === questionId);
+      if (!parentQuestion) return;
+
+      const newReply = {
+        replyId: Date.now().toString(),
+        userId: user.id,
+        userName: user.name || 'Admin',
+        userAvatar: user.avatar_url || '',
+        role: 'admin',
+        content: text.trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      const updatedReplies = [...(parentQuestion.replies || []), newReply];
+
+      const qDocRef = doc(db, 'questions', questionId);
+      await updateDoc(qDocRef, { replies: updatedReplies });
+
+      setQaQuestions(prev => prev.map(q => q.id === questionId ? { ...q, replies: updatedReplies } : q));
+      setAdminReplyTextMap(prev => ({ ...prev, [questionId]: '' }));
+      alert("Resposta enviada com sucesso!");
+    } catch (err) {
+      console.error("Erro ao enviar resposta do admin:", err);
+      alert("Erro ao enviar resposta.");
+    } finally {
+      setSubmittingAdminReplyId('');
     }
   };
 
@@ -652,6 +731,7 @@ function AdminContent() {
       content: [],
       codeBlocks: [{ language: 'javascript', filename: '', code: '' }],
       articleBlocks: [],
+      quizQuestions: [],
       description: ''
     });
     setShowLessonModal(true);
@@ -673,6 +753,7 @@ function AdminContent() {
       content: les.content || [],
       codeBlocks: les.codeBlocks || [{ language: 'javascript', filename: '', code: '' }],
       articleBlocks: les.articleBlocks || [],
+      quizQuestions: les.quizQuestions || [],
       description: les.description || ''
     });
     setShowLessonModal(true);
@@ -691,6 +772,7 @@ function AdminContent() {
     if (lessonData.type !== 'pdf') { delete lessonData.fileUrl; }
     if (lessonData.type !== 'text' && !lessonData.content?.length) { delete lessonData.content; }
     if (lessonData.type !== 'article') { delete lessonData.articleBlocks; }
+    if (lessonData.type !== 'quiz') { delete lessonData.quizQuestions; }
     if (!lessonData.description) { delete lessonData.description; }
 
     setContentSyllabus(prev => {
@@ -754,6 +836,7 @@ function AdminContent() {
       case 'text': return '📝';
       case 'pdf': return '📄';
       case 'audio': return '🎧';
+      case 'quiz': return '📝';
       default: return '📎';
     }
   };
@@ -765,7 +848,8 @@ function AdminContent() {
       download: { bg: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: 'rgba(245,158,11,0.3)' },
       text: { bg: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: 'rgba(139,92,246,0.3)' },
       pdf: { bg: 'rgba(239,68,68,0.15)', color: '#f87171', border: 'rgba(239,68,68,0.3)' },
-      audio: { bg: 'rgba(236,72,153,0.15)', color: '#f472b6', border: 'rgba(236,72,153,0.3)' }
+      audio: { bg: 'rgba(236,72,153,0.15)', color: '#f472b6', border: 'rgba(236,72,153,0.3)' },
+      quiz: { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: 'rgba(245,158,11,0.3)' }
     };
     return colors[type] || colors.video;
   };
@@ -827,6 +911,20 @@ function AdminContent() {
           >
             <span className="nav-icon">📚</span>
             <span>Conteúdo</span>
+          </button>
+          <button 
+            className={`nav-item ${activeSection === 'analytics' ? 'active' : ''}`} 
+            onClick={() => { setActiveSection('analytics'); setSidebarOpen(false); }}
+          >
+            <span className="nav-icon">📈</span>
+            <span>Analytics</span>
+          </button>
+          <button 
+            className={`nav-item ${activeSection === 'qa' ? 'active' : ''}`} 
+            onClick={() => { setActiveSection('qa'); setSidebarOpen(false); }}
+          >
+            <span className="nav-icon">💬</span>
+            <span>Dúvidas Q&A</span>
           </button>
         </nav>
 
@@ -1489,6 +1587,156 @@ function AdminContent() {
                 )}
               </section>
             )}
+
+            {/* ========== SECTION: ANALYTICS ========== */}
+            {activeSection === 'analytics' && (
+              <section className="admin-section active">
+                <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'white', fontSize: 'var(--font-xl)', marginBottom: '15px' }}>📈 Análise de Métricas (Analytics)</h2>
+                
+                {/* KPI Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+                  <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)' }}>Receita Total Aprovada</span>
+                    <h3 style={{ fontSize: 'var(--font-3xl)', fontWeight: 'bold', margin: '5px 0 0 0', color: 'var(--accent-cyan)' }}>
+                      R$ {kpis.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </h3>
+                  </div>
+                  <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)' }}>Conversão de Leads</span>
+                    <h3 style={{ fontSize: 'var(--font-3xl)', fontWeight: 'bold', margin: '5px 0 0 0', color: '#10b981' }}>
+                      {kpis.conversionRate}%
+                    </h3>
+                  </div>
+                  <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)' }}>Total de Alunos</span>
+                    <h3 style={{ fontSize: 'var(--font-3xl)', fontWeight: 'bold', margin: '5px 0 0 0', color: 'white' }}>
+                      {dbUsers.length}
+                    </h3>
+                  </div>
+                </div>
+
+                {/* Popularity and completion table */}
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px', overflowX: 'auto' }}>
+                  <h3 style={{ fontSize: 'var(--font-md)', fontWeight: 'bold', color: 'white', marginBottom: '15px' }}>Desempenho por Curso</h3>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 'var(--font-sm)' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                        <th style={{ padding: '10px' }}>Título do Curso</th>
+                        <th style={{ padding: '10px' }}>Vendas Aprovadas</th>
+                        <th style={{ padding: '10px' }}>Alunos que Concluíram</th>
+                        <th style={{ padding: '10px' }}>Conversão</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coursePopularity.map(cp => {
+                        const totalUsers = dbUsers.length;
+                        const courseConversion = totalUsers > 0 ? Math.round((cp.sales / totalUsers) * 100) : 0;
+                        return (
+                          <tr key={cp.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', color: 'white' }}>
+                            <td style={{ padding: '12px 10px', fontWeight: 'bold' }}>{cp.title}</td>
+                            <td style={{ padding: '12px 10px' }}>{cp.sales}</td>
+                            <td style={{ padding: '12px 10px', color: '#f59e0b' }}>{cp.completions}</td>
+                            <td style={{ padding: '12px 10px', color: '#10b981' }}>{courseConversion}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            {/* ========== SECTION: QA MODERATION ========== */}
+            {activeSection === 'qa' && (
+              <section className="admin-section active">
+                <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'white', fontSize: 'var(--font-xl)', marginBottom: '15px' }}>💬 Moderação de Dúvidas (Q&A)</h2>
+                
+                {qaQuestions.length === 0 ? (
+                  <p style={{ color: 'var(--text-muted)' }}>Nenhuma dúvida registrada pelos alunos até o momento.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {qaQuestions.map(q => {
+                      const courseObj = courses.find(c => c.id === q.courseId);
+                      let lessonTitle = q.lessonId;
+                      if (courseObj?.syllabus) {
+                        courseObj.syllabus.forEach(mod => {
+                          const les = mod.lessons?.find(l => l.id === q.lessonId);
+                          if (les) lessonTitle = les.title;
+                        });
+                      }
+                      
+                      return (
+                        <div key={q.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
+                            <div>
+                              <span style={{ fontSize: '11px', background: 'rgba(56,189,248,0.1)', color: 'var(--accent-cyan)', padding: '2px 6px', borderRadius: '3px' }}>
+                                Curso: {courseObj?.title || q.courseId}
+                              </span>
+                              <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.05)', color: 'white', padding: '2px 6px', borderRadius: '3px', marginLeft: '8px' }}>
+                                Aula: {lessonTitle}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{new Date(q.createdAt).toLocaleString('pt-BR')}</span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            {q.userAvatar ? (
+                              <img src={q.userAvatar} alt={q.userName} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold' }}>
+                                {q.userName?.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <strong style={{ fontSize: '13px', color: 'white' }}>{q.userName}</strong>
+                          </div>
+
+                          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)', margin: '0 0 15px 0', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                            {q.content}
+                          </p>
+
+                          {/* Replies list */}
+                          {q.replies && q.replies.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '15px', borderLeft: '2px solid rgba(255,255,255,0.05)', paddingLeft: '12px', marginBottom: '15px' }}>
+                              {q.replies.map(reply => (
+                                <div key={reply.replyId} style={{ background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '6px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                                    <strong style={{ fontSize: '12px', color: 'white' }}>
+                                      {reply.userName} 
+                                      {reply.role === 'admin' && <span style={{ marginLeft: '5px', fontSize: '9px', background: 'rgba(139, 92, 246, 0.2)', color: 'var(--accent-purple)', padding: '1px 3px', borderRadius: '3px' }}>ADMIN</span>}
+                                    </strong>
+                                    <span style={{ fontSize: '9px', color: 'var(--text-muted)', marginLeft: '5px' }}>{new Date(reply.createdAt).toLocaleString('pt-BR')}</span>
+                                  </div>
+                                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.85)', margin: 0 }}>{reply.content}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Reply Box */}
+                          <div style={{ display: 'flex', gap: '10px', marginLeft: '15px' }}>
+                            <input
+                              type="text"
+                              placeholder="Escrever resposta oficial..."
+                              value={adminReplyTextMap[q.id] || ''}
+                              onChange={(e) => setAdminReplyTextMap(prev => ({ ...prev, [q.id]: e.target.value }))}
+                              style={{ flexGrow: 1, padding: '8px 12px', borderRadius: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'white', fontSize: '13px' }}
+                            />
+                            <button
+                              onClick={() => handleAdminPostReply(q.id)}
+                              disabled={submittingAdminReplyId === q.id || !(adminReplyTextMap[q.id] || '').trim()}
+                              className="btn btn-sm btn-primary"
+                              style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '12px' }}
+                            >
+                              {submittingAdminReplyId === q.id ? '...' : 'Responder'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
           </>
         )}
 
@@ -1752,6 +2000,19 @@ function AdminContent() {
                     Sob Consulta / Matrículas Fechadas
                   </label>
                 </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '20px' }}>
+                  <input 
+                    type="checkbox" 
+                    id="sequentialUnlock"
+                    checked={courseForm.sequentialUnlock}
+                    onChange={(e) => setCourseForm({ ...courseForm, sequentialUnlock: e.target.checked })}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="sequentialUnlock" style={{ fontSize: '13px', color: 'white', cursor: 'pointer' }}>
+                    Desbloqueio Sequencial (Linear)
+                  </label>
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '15px' }}>
@@ -1974,6 +2235,7 @@ function AdminContent() {
                   >
                     <option value="video">🎬 Vídeo (YouTube / Vimeo / Panda)</option>
                     <option value="article">📑 Artigo / Tutorial (Blocos mistos)</option>
+                    <option value="quiz">📝 Quiz / Avaliação de Módulo</option>
                     <option value="code">💻 Código (Blocos de código)</option>
                     <option value="download">📥 Arquivo para Download</option>
                     <option value="text">📝 Texto / Leitura</option>
@@ -2346,6 +2608,107 @@ function AdminContent() {
                         <div style={{ height: '1px', background: 'var(--border-color)', margin: '5px 0' }} />
                       )}
 
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* QUIZ */}
+              {lessonForm.type === 'quiz' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: '8px', padding: '15px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label style={{ fontSize: '12px', color: '#a78bfa', fontWeight: 'bold' }}>📝 Editor de Perguntas do Quiz</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newQ = {
+                          id: Date.now().toString(),
+                          question: '',
+                          options: ['', '', '', ''],
+                          correctAnswerIndex: 0
+                        };
+                        setLessonForm({ ...lessonForm, quizQuestions: [...(lessonForm.quizQuestions || []), newQ] });
+                      }}
+                      className="btn btn-sm btn-outline"
+                      style={{ padding: '4px 8px', fontSize: '11px', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.3)', cursor: 'pointer' }}
+                    >
+                      + Pergunta
+                    </button>
+                  </div>
+
+                  {(!lessonForm.quizQuestions || lessonForm.quizQuestions.length === 0) && (
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '12px', border: '1px dashed rgba(167,139,250,0.2)', borderRadius: '6px' }}>
+                      Nenhuma pergunta cadastrada. Adicione pelo menos uma pergunta para salvar o quiz.
+                    </div>
+                  )}
+
+                  {(lessonForm.quizQuestions || []).map((q, qIdx) => (
+                    <div key={q.id || qIdx} style={{ border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', padding: '12px', background: 'rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>Questão {qIdx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = lessonForm.quizQuestions.filter((_, i) => i !== qIdx);
+                            setLessonForm({ ...lessonForm, quizQuestions: updated });
+                          }}
+                          style={{ background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={q.question || ''}
+                        onChange={(e) => {
+                          const updated = [...lessonForm.quizQuestions];
+                          updated[qIdx] = { ...updated[qIdx], question: e.target.value };
+                          setLessonForm({ ...lessonForm, quizQuestions: updated });
+                        }}
+                        placeholder="Escreva a pergunta aqui..."
+                        style={{ padding: '8px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontSize: '13px' }}
+                      />
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Alternativas (marque a estrela na resposta correta):</span>
+                        {q.options?.map((opt, oIdx) => (
+                          <div key={oIdx} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...lessonForm.quizQuestions];
+                                updated[qIdx] = { ...updated[qIdx], correctAnswerIndex: oIdx };
+                                setLessonForm({ ...lessonForm, quizQuestions: updated });
+                              }}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: q.correctAnswerIndex === oIdx ? '#f59e0b' : 'rgba(255,255,255,0.2)',
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}
+                              title="Marcar como correta"
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '20px', fontVariationSettings: q.correctAnswerIndex === oIdx ? "'FILL' 1" : "'FILL' 0" }}>star</span>
+                            </button>
+                            <input
+                              type="text"
+                              value={opt || ''}
+                              onChange={(e) => {
+                                const updatedOpts = [...q.options];
+                                updatedOpts[oIdx] = e.target.value;
+                                const updated = [...lessonForm.quizQuestions];
+                                updated[qIdx] = { ...updated[qIdx], options: updatedOpts };
+                                setLessonForm({ ...lessonForm, quizQuestions: updated });
+                              }}
+                              placeholder={`Alternativa ${oIdx + 1}...`}
+                              style={{ flexGrow: 1, padding: '6px 10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', fontSize: '12px' }}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>

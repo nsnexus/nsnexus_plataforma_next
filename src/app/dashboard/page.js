@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -22,7 +22,7 @@ const loadScript = (src) => {
 };
 
 function DashboardContent() {
-  const { user, courses, reloadUser } = useAuth();
+  const { user, courses, reloadUser, unlockAchievement } = useAuth();
   const [activeTab, setActiveTab] = useState('courses');
   const [pendingPurchases, setPendingPurchases] = useState([]);
   const [selectedCertificateCourse, setSelectedCertificateCourse] = useState(null);
@@ -506,6 +506,10 @@ function DashboardContent() {
           );
           const snap = await getDocs(q);
           setReferralsCount(snap.size);
+
+          if (snap.size >= 1 && !user.achievements?.includes('referral_bronze')) {
+            await unlockAchievement('referral_bronze');
+          }
         } catch (e) {
           console.error("Erro ao buscar indicações:", e);
         }
@@ -644,10 +648,84 @@ function DashboardContent() {
     };
   };
 
+  const bookmarkedLessons = useMemo(() => {
+    const list = [];
+    if (!user || !user.bookmarks || !courses) return list;
+    
+    courses.forEach(course => {
+      if (user.enrolledCourses?.includes(course.id)) {
+        const bookmarkedIds = user.bookmarks[course.id] || [];
+        if (bookmarkedIds.length > 0 && course.syllabus) {
+          course.syllabus.forEach(mod => {
+            if (mod.lessons) {
+              mod.lessons.forEach(les => {
+                if (bookmarkedIds.includes(les.id)) {
+                  list.push({
+                    courseId: course.id,
+                    courseTitle: course.title,
+                    lessonId: les.id,
+                    lessonTitle: les.title,
+                    lessonType: les.type
+                  });
+                }
+              });
+            }
+          });
+        }
+      }
+    });
+    return list;
+  }, [user, courses]);
+
+  const getContinueLessonTitle = (course) => {
+    const completedList = user.progress?.[course.id]?.completedLessons || [];
+    const lastWatchedId = user.progress?.[course.id]?.lastWatchedLessonId;
+    
+    let targetLesson = null;
+    if (lastWatchedId && course.syllabus) {
+      course.syllabus.forEach(mod => {
+        const found = mod.lessons?.find(les => les.id === lastWatchedId);
+        if (found) targetLesson = found;
+      });
+    }
+
+    if (!targetLesson && course.syllabus) {
+      for (const mod of course.syllabus) {
+        for (const les of mod.lessons) {
+          if (!completedList.includes(les.id)) {
+            targetLesson = les;
+            break;
+          }
+        }
+        if (targetLesson) break;
+      }
+    }
+
+    if (!targetLesson && course.syllabus?.[0]?.lessons?.[0]) {
+      targetLesson = course.syllabus[0].lessons[0];
+    }
+
+    return targetLesson ? targetLesson.title : '';
+  };
+
   // Helper to get continue link
   const getContinueLink = (course) => {
     const completedList = user.progress?.[course.id]?.completedLessons || [];
+    const lastWatchedId = user.progress?.[course.id]?.lastWatchedLessonId;
     
+    let hasLastWatched = false;
+    if (lastWatchedId && course.syllabus) {
+      course.syllabus.forEach(mod => {
+        if (mod.lessons?.some(les => les.id === lastWatchedId)) {
+          hasLastWatched = true;
+        }
+      });
+    }
+
+    if (hasLastWatched) {
+      return `/player/${course.id}/${lastWatchedId}`;
+    }
+
     let nextLessonId = null;
     if (course.syllabus) {
       for (const mod of course.syllabus) {
@@ -732,6 +810,154 @@ function DashboardContent() {
             </Link>
           )}
         </div>
+
+        {/* Achievements / Conquistas Gamification Panel */}
+        {user && (
+          <div style={{
+            background: 'rgba(15, 23, 42, 0.45)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-6)',
+            marginBottom: 'var(--space-8)'
+          }}>
+            <h3 style={{ fontSize: 'var(--font-lg)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', color: 'white', margin: '0 0 15px 0' }}>
+              <span className="material-symbols-outlined" style={{ color: '#f59e0b', fontSize: '22px' }}>workspace_premium</span>
+              Minhas Conquistas
+            </h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+              
+              {/* Badge 1: Primeiro Passo */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px',
+                background: 'rgba(255,255,255,0.02)',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.05)',
+                opacity: user.achievements?.includes('first_lesson') ? 1 : 0.35,
+                filter: user.achievements?.includes('first_lesson') ? 'none' : 'grayscale(100%)'
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle, #fde68a 0%, #f59e0b 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                  flexShrink: 0
+                }}>
+                  🎓
+                </div>
+                <div>
+                  <strong style={{ fontSize: '13px', display: 'block', color: user.achievements?.includes('first_lesson') ? 'white' : 'var(--text-muted)' }}>Primeiro Passo</strong>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Concluiu a 1ª aula</span>
+                </div>
+              </div>
+
+              {/* Badge 2: Foco Total */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px',
+                background: 'rgba(255,255,255,0.02)',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.05)',
+                opacity: user.achievements?.includes('focus_total') ? 1 : 0.35,
+                filter: user.achievements?.includes('focus_total') ? 'none' : 'grayscale(100%)'
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle, #93c5fd 0%, #3b82f6 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                  flexShrink: 0
+                }}>
+                  ⚡
+                </div>
+                <div>
+                  <strong style={{ fontSize: '13px', display: 'block', color: user.achievements?.includes('focus_total') ? 'white' : 'var(--text-muted)' }}>Foco Total</strong>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Concluiu 5 aulas</span>
+                </div>
+              </div>
+
+              {/* Badge 3: Mestre */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px',
+                background: 'rgba(255,255,255,0.02)',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.05)',
+                opacity: user.achievements?.includes('course_completed') ? 1 : 0.35,
+                filter: user.achievements?.includes('course_completed') ? 'none' : 'grayscale(100%)'
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle, #c084fc 0%, #8b5cf6 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                  flexShrink: 0
+                }}>
+                  🏆
+                </div>
+                <div>
+                  <strong style={{ fontSize: '13px', display: 'block', color: user.achievements?.includes('course_completed') ? 'white' : 'var(--text-muted)' }}>Mestre</strong>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Concluiu 100% de um curso</span>
+                </div>
+              </div>
+
+              {/* Badge 4: Divulgador */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px',
+                background: 'rgba(255,255,255,0.02)',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.05)',
+                opacity: user.achievements?.includes('referral_bronze') ? 1 : 0.35,
+                filter: user.achievements?.includes('referral_bronze') ? 'none' : 'grayscale(100%)'
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle, #6ee7b7 0%, #10b981 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                  flexShrink: 0
+                }}>
+                  🤝
+                </div>
+                <div>
+                  <strong style={{ fontSize: '13px', display: 'block', color: user.achievements?.includes('referral_bronze') ? 'white' : 'var(--text-muted)' }}>Divulgador</strong>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>1+ indicação ativa</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
 
         {/* Indique & Ganhe Mission */}
         {user && (
@@ -855,6 +1081,14 @@ function DashboardContent() {
               Meus Cursos ({myCourses.length})
             </button>
             <button 
+              onClick={() => setActiveTab('bookmarks')}
+              className={`btn btn-sm ${activeTab === 'bookmarks' ? 'btn-primary' : 'btn-outline'}`}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>star</span>
+              Meus Favoritos ({bookmarkedLessons.length})
+            </button>
+            <button 
               onClick={() => setActiveTab('ebooks')}
               className={`btn btn-sm ${activeTab === 'ebooks' ? 'btn-primary' : 'btn-outline'}`}
               style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
@@ -898,8 +1132,14 @@ function DashboardContent() {
                           </div>
                         </div>
                         <div style={{ marginTop: 'auto', paddingTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <Link href={getContinueLink(course)} className="btn btn-primary btn-full" style={{ justifyContent: 'center' }}>
-                            {completedCount > 0 ? 'Continuar Curso' : 'Iniciar Curso'}
+                          <Link href={getContinueLink(course)} className="btn btn-primary btn-full" style={{ justifyContent: 'center', flexDirection: 'column', gap: '2px', padding: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', fontWeight: 'bold' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>play_arrow</span>
+                              {completedCount > 0 ? 'Continuar Curso' : 'Iniciar Curso'}
+                            </div>
+                            <div style={{ fontSize: '10px', opacity: 0.8, fontWeight: 'normal', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {getContinueLessonTitle(course)}
+                            </div>
                           </Link>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
                             <button 
@@ -979,6 +1219,35 @@ function DashboardContent() {
                 <h3 style={{ marginTop: 'var(--space-4)' }}>Nenhum curso matriculado</h3>
                 <p style={{ color: 'var(--text-secondary)', margin: 'var(--space-2) 0 var(--space-6) 0' }}>Você ainda não adquiriu nenhum treinamento corporativo.</p>
                 <Link href="/cursos" className="btn btn-primary">Explorar Cursos</Link>
+              </div>
+            )
+          )}
+
+          {activeTab === 'bookmarks' && (
+            bookmarkedLessons.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {bookmarkedLessons.map((item, idx) => (
+                  <div key={`${item.courseId}_${item.lessonId}_${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.45)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '15px 20px', flexWrap: 'wrap', gap: '15px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--accent-cyan)' }}>
+                          {item.lessonType === 'video' ? 'play_circle' : item.lessonType === 'quiz' ? 'quiz' : 'article'}
+                        </span>
+                        <strong style={{ fontSize: '15px' }}>{item.lessonTitle}</strong>
+                      </div>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Curso: {item.courseTitle}</span>
+                    </div>
+                    <Link href={`/player/${item.courseId}/${item.lessonId}`} className="btn btn-sm btn-primary" style={{ textDecoration: 'none' }}>
+                      Ir para Aula
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: 'var(--space-12) var(--space-6)', background: 'rgba(15, 23, 42, 0.25)', border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-lg)' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '48px', color: 'var(--text-muted)' }}>star</span>
+                <h3 style={{ marginTop: 'var(--space-4)' }}>Nenhum favorito salvo</h3>
+                <p style={{ color: 'var(--text-secondary)', margin: 'var(--space-2) 0 var(--space-6) 0' }}>Você pode favoritar qualquer aula clicando na estrela dentro do player.</p>
               </div>
             )
           )}

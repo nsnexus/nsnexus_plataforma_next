@@ -140,7 +140,9 @@ export const AuthProvider = ({ children }) => {
           name: fallbackName,
           avatar_url: defaultAvatar,
           role: userEmail === 'narcisofelizardo@gmail.com' ? 'admin' : 'student',
-          progress: {}
+          progress: {},
+          bookmarks: {},
+          achievements: []
         };
 
         await setDoc(profileRef, newProfile);
@@ -174,7 +176,9 @@ export const AuthProvider = ({ children }) => {
         role: profile.role || 'student',
         progress: profile.progress || {},
         enrolledCourses: enrolledCourses,
-        completedCourses: profile.completedCourses || []
+        completedCourses: profile.completedCourses || [],
+        bookmarks: profile.bookmarks || {},
+        achievements: profile.achievements || []
       };
     } catch (error) {
       console.error("Error loading user profile:", error);
@@ -209,7 +213,9 @@ export const AuthProvider = ({ children }) => {
             role: "admin",
             progress: {},
             enrolledCourses: ["ebook-ia-negocios", "audiobook-ia-negocios", "sistemas-sharepoint-moderno", "landing-page-whatsapp"],
-            completedCourses: []
+            completedCourses: [],
+            bookmarks: {},
+            achievements: []
           };
           setUser(mockUser);
         } else {
@@ -250,7 +256,9 @@ export const AuthProvider = ({ children }) => {
       name: name,
       avatar_url: defaultAvatar,
       role: email === 'narcisofelizardo@gmail.com' ? 'admin' : 'student',
-      progress: {}
+      progress: {},
+      bookmarks: {},
+      achievements: []
     };
 
     await setDoc(doc(db, 'profiles', userId), newProfile);
@@ -296,18 +304,100 @@ export const AuthProvider = ({ children }) => {
         lessons = lessons.filter(id => id !== lessonId);
       }
 
-      currentProgress[courseId] = { completedLessons: lessons };
+      currentProgress[courseId] = { 
+        ...currentProgress[courseId],
+        completedLessons: lessons,
+        lastWatchedLessonId: lessonId,
+        lastWatchedAt: new Date().toISOString()
+      };
+
+      // Check achievements triggers:
+      // 1. "first_lesson" (Primeiro Passo)
+      let totalCompleted = 0;
+      Object.keys(currentProgress).forEach(cId => {
+        totalCompleted += (currentProgress[cId]?.completedLessons?.length || 0);
+      });
+
+      const updatedAchievements = [...(user.achievements || [])];
+      
+      if (totalCompleted >= 1 && !updatedAchievements.includes('first_lesson')) {
+        updatedAchievements.push('first_lesson');
+      }
+      // 2. "focus_total" (Foco Total)
+      if (totalCompleted >= 5 && !updatedAchievements.includes('focus_total')) {
+        updatedAchievements.push('focus_total');
+      }
+      // 3. "course_completed" (Mestre da Plataforma)
+      const course = courses.find(c => c.id === courseId);
+      if (course && course.syllabus) {
+        const totalLessons = course.syllabus.reduce((acc, mod) => acc + (mod.lessons?.length || 0), 0) || 0;
+        if (totalLessons > 0 && lessons.length === totalLessons && !updatedAchievements.includes('course_completed')) {
+          updatedAchievements.push('course_completed');
+        }
+      }
 
       // Sync with Firestore profiles collection
       const profileRef = doc(db, 'profiles', user.id);
-      await updateDoc(profileRef, { progress: currentProgress });
+      await updateDoc(profileRef, { 
+        progress: currentProgress,
+        achievements: updatedAchievements
+      });
 
       setUser(prev => ({
         ...prev,
-        progress: currentProgress
+        progress: currentProgress,
+        achievements: updatedAchievements
       }));
     } catch (err) {
       console.error("Error updating progress in Firestore:", err);
+    }
+  };
+
+  // Toggle Bookmark helper
+  const toggleBookmark = async (courseId, lessonId) => {
+    if (!user) return;
+    try {
+      const currentBookmarks = { ...(user.bookmarks || {}) };
+      if (!currentBookmarks[courseId]) {
+        currentBookmarks[courseId] = [];
+      }
+      let list = [...currentBookmarks[courseId]];
+      if (list.includes(lessonId)) {
+        list = list.filter(id => id !== lessonId);
+      } else {
+        list.push(lessonId);
+      }
+      currentBookmarks[courseId] = list;
+
+      const profileRef = doc(db, 'profiles', user.id);
+      await updateDoc(profileRef, { bookmarks: currentBookmarks });
+
+      setUser(prev => ({
+        ...prev,
+        bookmarks: currentBookmarks
+      }));
+    } catch (err) {
+      console.error("Error updating bookmarks in Firestore:", err);
+    }
+  };
+
+  // Unlock Achievement helper
+  const unlockAchievement = async (achievementId) => {
+    if (!user) return;
+    const currentAchievements = user.achievements || [];
+    if (currentAchievements.includes(achievementId)) return;
+
+    try {
+      const updatedAchievements = [...currentAchievements, achievementId];
+      const profileRef = doc(db, 'profiles', user.id);
+      await updateDoc(profileRef, { achievements: updatedAchievements });
+
+      setUser(prev => ({
+        ...prev,
+        achievements: updatedAchievements
+      }));
+    } catch (err) {
+      console.error("Error unlocking achievement in Firestore:", err);
     }
   };
 
@@ -321,6 +411,8 @@ export const AuthProvider = ({ children }) => {
       signOut, 
       resetPassword,
       updateProgress, 
+      toggleBookmark,
+      unlockAchievement,
       courses,
       loadingCourses,
       reloadCourses: loadCourses,

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../../../../context/AuthContext';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import { db } from '../../../../utils/firebase/client';
-import { doc, getDoc, setDoc } from 'firebase/firestore/lite';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, orderBy, getDocs, addDoc } from 'firebase/firestore/lite';
 
 function getVideoEmbedUrl(url) {
   if (!url) return '';
@@ -30,7 +30,7 @@ function getVideoEmbedUrl(url) {
 function PlayerContent() {
   const params = useParams();
   const { courseId, lessonId } = params;
-  const { user, updateProgress, courses } = useAuth();
+  const { user, updateProgress, toggleBookmark, courses } = useAuth();
   const router = useRouter();
   
   const [course, setCourse] = useState(null);
@@ -53,12 +53,27 @@ function PlayerContent() {
   const [activeCodeTab, setActiveCodeTab] = useState(0);
   const [copiedIndex, setCopiedIndex] = useState(-1);
 
-  // Lesson resources and notes toggles
+  // Lesson resources, notes and Q&A toggles
   const [showResources, setShowResources] = useState(false);
   const [showStudentNotes, setShowStudentNotes] = useState(false);
   const [studentNote, setStudentNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [loadingNote, setLoadingNote] = useState(false);
+
+  // Q&A states
+  const [questions, setQuestions] = useState([]);
+  const [showQuestions, setShowQuestions] = useState(false);
+  const [newQuestionText, setNewQuestionText] = useState('');
+  const [submittingQuestion, setSubmittingQuestion] = useState(false);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [replyTextMap, setReplyTextMap] = useState({});
+  const [submittingReplyId, setSubmittingReplyId] = useState('');
+
+  // Quiz States
+  const [quizAnswers, setQuizAnswers] = useState({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [quizScore, setQuizScore] = useState(0);
+  const [quizError, setQuizError] = useState('');
 
   useEffect(() => {
     const fetchNote = async () => {
@@ -101,6 +116,162 @@ function PlayerContent() {
       alert("Erro ao salvar anotação.");
     } finally {
       setSavingNote(false);
+    }
+  };
+
+  const isLessonLocked = (lesId) => {
+    if (!course || !course.sequentialUnlock || !user) return false;
+    
+    const linearLessons = [];
+    if (course.syllabus) {
+      course.syllabus.forEach(mod => {
+        if (mod.lessons) {
+          linearLessons.push(...mod.lessons);
+        }
+      });
+    }
+
+    const idx = linearLessons.findIndex(l => l.id === lesId);
+    if (idx <= 0) return false;
+
+    const prevLesson = linearLessons[idx - 1];
+    const completedList = (user.progress && user.progress[courseId]) 
+      ? user.progress[courseId].completedLessons || [] 
+      : [];
+    return !completedList.includes(prevLesson.id);
+  };
+
+  const getEstimatedTimeLeft = () => {
+    if (!course || !user) return '0 min';
+    const completedList = (user.progress && user.progress[courseId]) 
+      ? user.progress[courseId].completedLessons || [] 
+      : [];
+    
+    let totalSeconds = 0;
+    if (course.syllabus) {
+      course.syllabus.forEach(mod => {
+        if (mod.lessons) {
+          mod.lessons.forEach(les => {
+            if (!completedList.includes(les.id)) {
+              const durStr = les.duration?.toLowerCase() || '';
+              let mins = 0;
+              if (durStr.includes('min')) {
+                mins = parseInt(durStr.replace('min', '').trim()) || 0;
+              } else if (durStr.includes('seg')) {
+                mins = (parseInt(durStr.replace('seg', '').trim()) || 0) / 60;
+              } else if (durStr.includes('h')) {
+                const parts = durStr.split('h');
+                const hrs = parseInt(parts[0].trim()) || 0;
+                const remaining = parts[1]?.replace('m', '').trim() || '';
+                const remMins = parseInt(remaining) || 0;
+                mins = (hrs * 60) + remMins;
+              } else {
+                mins = parseInt(durStr) || 5; 
+              }
+              totalSeconds += mins * 60;
+            }
+          });
+        }
+      });
+    }
+
+    if (totalSeconds === 0) return 'Concluído';
+    const totalMinutes = Math.round(totalSeconds / 60);
+    if (totalMinutes < 60) {
+      return `${totalMinutes} min`;
+    }
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+  };
+
+  const fetchQuestions = async () => {
+    if (!courseId || !activeLesson?.id) return;
+    setLoadingQuestions(true);
+    try {
+      const qRef = collection(db, 'questions');
+      const q = query(
+        qRef,
+        where('courseId', '==', courseId),
+        where('lessonId', '==', activeLesson.id)
+      );
+      const querySnapshot = await getDocs(q);
+      const data = [];
+      querySnapshot.forEach(docSnap => {
+        data.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      data.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      setQuestions(data);
+    } catch (err) {
+      console.error("Erro ao buscar dúvidas:", err);
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showQuestions) {
+      fetchQuestions();
+    }
+  }, [showQuestions, courseId, activeLesson?.id]);
+
+  const handlePostQuestion = async (e) => {
+    e.preventDefault();
+    if (!newQuestionText.trim() || !user || submittingQuestion) return;
+    setSubmittingQuestion(true);
+    try {
+      const questionData = {
+        courseId,
+        lessonId: activeLesson.id,
+        userId: user.id,
+        userName: user.name || 'Estudante',
+        userAvatar: user.avatar_url || '',
+        content: newQuestionText.trim(),
+        createdAt: new Date().toISOString(),
+        replies: []
+      };
+
+      const docRef = await addDoc(collection(db, 'questions'), questionData);
+      setQuestions(prev => [{ id: docRef.id, ...questionData }, ...prev]);
+      setNewQuestionText('');
+    } catch (err) {
+      console.error("Erro ao postar dúvida:", err);
+      alert("Erro ao postar dúvida. Tente novamente.");
+    } finally {
+      setSubmittingQuestion(false);
+    }
+  };
+
+  const handlePostReply = async (questionId) => {
+    const text = replyTextMap[questionId];
+    if (!text || !text.trim() || !user || submittingReplyId) return;
+    setSubmittingReplyId(questionId);
+    try {
+      const parentQuestion = questions.find(q => q.id === questionId);
+      if (!parentQuestion) return;
+
+      const newReply = {
+        replyId: Date.now().toString(),
+        userId: user.id,
+        userName: user.name || 'Estudante',
+        userAvatar: user.avatar_url || '',
+        role: user.role || 'student',
+        content: text.trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      const updatedReplies = [...(parentQuestion.replies || []), newReply];
+      
+      const qRef = doc(db, 'questions', questionId);
+      await updateDoc(qRef, { replies: updatedReplies });
+
+      setQuestions(prev => prev.map(q => q.id === questionId ? { ...q, replies: updatedReplies } : q));
+      setReplyTextMap(prev => ({ ...prev, [questionId]: '' }));
+    } catch (err) {
+      console.error("Erro ao postar resposta:", err);
+      alert("Erro ao enviar resposta.");
+    } finally {
+      setSubmittingReplyId('');
     }
   };
 
@@ -235,6 +406,11 @@ function PlayerContent() {
     setCopiedIndex(-1);
     setShowResources(false);
     setShowStudentNotes(false);
+    setShowQuestions(false);
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+    setQuizScore(0);
+    setQuizError('');
   }, [activeLesson?.id, courseId]);
 
   const handleCopyCode = (code, index) => {
@@ -325,9 +501,17 @@ function PlayerContent() {
             <Link href="/dashboard" style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '5px', textDecoration: 'none', fontSize: 'var(--font-sm)', marginBottom: '8px' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span> Dashboard
             </Link>
-            <h2 style={{ fontSize: 'var(--font-md)', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }} title={course.title}>
-              {course.title}
-            </h2>
+            <h2 style={{ fontSize: 'var(--font-md)', fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <span className="material-symbols-outlined" style={{ color: 'var(--accent-cyan)' }}>list_alt</span>
+               Conteúdo do Curso
+             </h2>
+             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+               {course.title}
+             </p>
+             <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+               <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>schedule</span>
+               Tempo restante: {getEstimatedTimeLeft()}
+             </p>
           </div>
           <button 
             className="mobile-syllabus-close"
@@ -345,10 +529,36 @@ function PlayerContent() {
                 {mod.moduleTitle}
               </div>
               <div className="player-mod__list">
-                {mod.lessons?.map(les => {
+                 {mod.lessons?.map(les => {
                   const isActive = les.id === activeLesson.id;
                   const isCompleted = completedList.includes(les.id);
+                  const isLocked = isLessonLocked(les.id);
                   
+                  if (isLocked) {
+                    return (
+                      <div 
+                        key={les.id} 
+                        className="player-les player-les--locked"
+                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: 'var(--space-3) var(--space-4)', borderBottom: '1px solid rgba(255,255,255,0.02)', opacity: 0.45, cursor: 'not-allowed' }}
+                      >
+                        <div 
+                          style={{ width: '18px', height: '18px', borderRadius: '4px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'var(--text-muted)', flexShrink: 0 }}
+                        >
+                          🔒
+                        </div>
+                        <div className="player-les__info" style={{ flexGrow: 1, minWidth: 0 }}>
+                          <span className="player-les__title" style={{ display: 'block', fontSize: 'var(--font-sm)', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {les.title}
+                          </span>
+                          <span className="player-les__meta" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>lock</span>
+                            Trancada
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <Link 
                       key={les.id} 
@@ -370,7 +580,7 @@ function PlayerContent() {
                         </span>
                         <span className="player-les__meta" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
                           <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>
-                            {les.type === 'pdf' ? 'menu_book' : 'play_circle'}
+                            {les.type === 'pdf' ? 'menu_book' : les.type === 'quiz' ? 'quiz' : 'play_circle'}
                           </span>
                           {les.duration}
                         </span>
@@ -408,7 +618,163 @@ function PlayerContent() {
         {/* Video / Slide Area */}
         {/* Video / Slide / Audio Area */}
         <div className="player-media-wrapper" id="player-media">
-          {activeLesson.type === 'pdf' ? (
+          {isLessonLocked(activeLesson.id) ? (
+            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '40px', color: 'white', textAlign: 'center', background: 'rgba(15, 23, 42, 0.6)', minHeight: '400px' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '64px', color: 'var(--accent-purple)' }}>lock</span>
+              <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>Esta aula está trancada</h2>
+              <p style={{ color: 'var(--text-secondary)', maxWidth: '500px', fontSize: '14px', lineHeight: 1.6 }}>
+                Você precisa concluir as aulas anteriores deste curso antes de poder assistir a esta aula. Marque as aulas anteriores como concluídas na barra lateral.
+              </p>
+              <Link href="/dashboard" className="btn btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', textDecoration: 'none' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+                Voltar ao Dashboard
+              </Link>
+            </div>
+          ) : activeLesson.type === 'quiz' ? (
+            /* ===== QUIZ VIEWER ===== */
+            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', overflowY: 'auto' }}>
+              <div style={{ padding: '40px 20px', maxWidth: '800px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                <h1 style={{ fontSize: '28px', color: 'var(--accent-cyan)', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '15px' }}>
+                  📝 Quiz / Avaliação: {activeLesson.title}
+                </h1>
+                
+                {(!activeLesson.quizQuestions || activeLesson.quizQuestions.length === 0) ? (
+                  <p style={{ color: 'var(--text-muted)' }}>Este quiz ainda não possui perguntas cadastradas.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                    {activeLesson.quizQuestions.map((q, qIdx) => {
+                      const selectedOpt = quizAnswers[q.id];
+                      return (
+                        <div key={q.id || qIdx} style={{ background: 'rgba(15, 23, 42, 0.45)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px', textAlign: 'left' }}>
+                          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px', color: 'white' }}>
+                            {qIdx + 1}. {q.question}
+                          </h3>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {q.options?.map((opt, oIdx) => {
+                              const isSelected = selectedOpt === oIdx;
+                              const isCorrect = q.correctAnswerIndex === oIdx;
+                              
+                              let optBg = 'transparent';
+                              let optBorder = 'rgba(255,255,255,0.1)';
+                              if (isSelected) {
+                                optBg = 'rgba(0, 102, 255, 0.15)';
+                                optBorder = 'var(--accent-blue)';
+                              }
+                              
+                              if (quizSubmitted) {
+                                if (isCorrect) {
+                                  optBg = 'rgba(16, 185, 129, 0.15)';
+                                  optBorder = '#10b981';
+                                } else if (isSelected && !isCorrect) {
+                                  optBg = 'rgba(239, 68, 68, 0.15)';
+                                  optBorder = '#ef4444';
+                                }
+                              }
+
+                              return (
+                                <button
+                                  key={oIdx}
+                                  disabled={quizSubmitted}
+                                  onClick={() => setQuizAnswers(prev => ({ ...prev, [q.id]: oIdx }))}
+                                  style={{
+                                    textAlign: 'left',
+                                    padding: '12px 15px',
+                                    borderRadius: '6px',
+                                    border: `1px solid ${optBorder}`,
+                                    background: optBg,
+                                    color: 'white',
+                                    cursor: quizSubmitted ? 'default' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
+                                    fontSize: '14px',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >
+                                  <div style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '50%',
+                                    border: '2px solid ' + (isSelected ? 'var(--accent-blue)' : 'rgba(255,255,255,0.4)'),
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}>
+                                    {isSelected && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--accent-blue)' }} />}
+                                  </div>
+                                  {opt}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {quizSubmitted ? (
+                      <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '25px', textAlign: 'center' }}>
+                        <h2 style={{ fontSize: '22px', fontWeight: 'bold', color: quizScore >= 70 ? '#10b981' : '#ef4444', marginBottom: '10px' }}>
+                          {quizScore >= 70 ? '🎉 Aprovado!' : '⚠️ Tente Novamente'}
+                        </h2>
+                        <p style={{ fontSize: '16px', margin: '0 0 15px 0' }}>
+                          Sua nota: <strong>{quizScore}%</strong> (Mínimo exigido: 70%)
+                        </p>
+                        
+                        {quizScore >= 70 ? (
+                          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                            Parabéns! Você atingiu a pontuação mínima e pode marcar esta aula como concluída.
+                          </p>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setQuizSubmitted(false);
+                              setQuizAnswers({});
+                              setQuizScore(0);
+                            }}
+                            className="btn btn-primary"
+                            style={{ margin: '10px auto 0 auto' }}
+                          >
+                            Refazer Quiz
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          const unanswered = activeLesson.quizQuestions.some(q => quizAnswers[q.id] === undefined);
+                          if (unanswered) {
+                            alert("Por favor, responda todas as questões antes de enviar.");
+                            return;
+                          }
+
+                          let correctCount = 0;
+                          activeLesson.quizQuestions.forEach(q => {
+                            if (quizAnswers[q.id] === q.correctAnswerIndex) {
+                              correctCount++;
+                            }
+                          });
+
+                          const score = Math.round((correctCount / activeLesson.quizQuestions.length) * 100);
+                          setQuizScore(score);
+                          setQuizSubmitted(true);
+
+                          if (score >= 70) {
+                            updateProgress(courseId, activeLesson.id, true);
+                          }
+                        }}
+                        className="btn btn-primary"
+                        style={{ alignSelf: 'flex-start', padding: '12px 30px' }}
+                      >
+                        Enviar Respostas
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            activeLesson.type === 'pdf' ? (
             <div className="pdf-viewer" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className="pdf-viewer__header" style={{ padding: 'var(--space-3) var(--space-4)', background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', fontSize: 'var(--font-sm)', alignItems: 'center' }}>
                 <span>{activeLesson.fileUrl ? 'E-book Seguro' : activeLesson.content ? 'Leitor de E-book Seguro' : 'Material Didático'}: <strong>{activeLesson.title}</strong></span>
@@ -1019,8 +1385,30 @@ function PlayerContent() {
           
           <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
             <button 
+              onClick={() => toggleBookmark(courseId, activeLesson.id)}
+              className="btn btn-outline"
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '5px', 
+                borderColor: user?.bookmarks?.[courseId]?.includes(activeLesson.id) ? 'var(--accent-cyan)' : 'var(--border-color)',
+                color: user?.bookmarks?.[courseId]?.includes(activeLesson.id) ? 'var(--accent-cyan)' : 'white',
+                background: user?.bookmarks?.[courseId]?.includes(activeLesson.id) ? 'rgba(0, 245, 212, 0.05)' : 'transparent',
+                cursor: 'pointer'
+              }}
+              title={user?.bookmarks?.[courseId]?.includes(activeLesson.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px', fontVariationSettings: user?.bookmarks?.[courseId]?.includes(activeLesson.id) ? "'FILL' 1" : "'FILL' 0" }}>star</span>
+              {user?.bookmarks?.[courseId]?.includes(activeLesson.id) ? 'Favorito' : 'Favoritar'}
+            </button>
+            <button 
               className={`btn ${isActiveCompleted ? 'btn-secondary' : 'btn-outline'}`}
+              disabled={activeLesson.type === 'quiz' && !isActiveCompleted && (!quizSubmitted || quizScore < 70)}
               onClick={(e) => handleToggleComplete(e, activeLesson.id)}
+              style={{
+                cursor: (activeLesson.type === 'quiz' && !isActiveCompleted && (!quizSubmitted || quizScore < 70)) ? 'not-allowed' : 'pointer'
+              }}
+              title={activeLesson.type === 'quiz' && !isActiveCompleted && (!quizSubmitted || quizScore < 70) ? "Você precisa passar no quiz com 70% ou mais para concluir esta aula." : ""}
             >
               {isActiveCompleted ? '✓ Concluído' : 'Marcar como Concluída'}
             </button>
@@ -1036,7 +1424,7 @@ function PlayerContent() {
         {/* ===== PERSONAL NOTES & RESOURCES TOGGLES ===== */}
         <div style={{ display: 'flex', gap: '15px', borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-3)' }}>
           <button
-            onClick={() => { setShowStudentNotes(!showStudentNotes); setShowResources(false); }}
+            onClick={() => { setShowStudentNotes(!showStudentNotes); setShowResources(false); setShowQuestions(false); }}
             className={`btn ${showStudentNotes ? 'btn-primary' : 'btn-outline'}`}
             style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--font-sm)', padding: '8px 15px' }}
           >
@@ -1044,16 +1432,24 @@ function PlayerContent() {
             Anotações Pessoais
           </button>
           
-          {(activeLesson.description || activeLesson.downloadUrl || (activeLesson.codeBlocks && activeLesson.type !== 'code')) && (
-            <button
-              onClick={() => { setShowResources(!showResources); setShowStudentNotes(false); }}
-              className={`btn ${showResources ? 'btn-primary' : 'btn-outline'}`}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--font-sm)', padding: '8px 15px' }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>folder_open</span>
-              Recursos da Aula
-            </button>
-          )}
+          <button 
+            disabled={!activeLesson.description && !activeLesson.downloadUrl && (!activeLesson.codeBlocks || activeLesson.type === 'code')}
+            onClick={() => { setShowResources(!showResources); setShowStudentNotes(false); setShowQuestions(false); }}
+            className={`btn ${showResources ? 'btn-primary' : 'btn-outline'}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: 'var(--font-sm)', padding: '8px 16px', borderRadius: '6px' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>download</span>
+            Recursos / Downloads
+          </button>
+
+          <button 
+            onClick={() => { setShowQuestions(!showQuestions); setShowStudentNotes(false); setShowResources(false); }}
+            className={`btn ${showQuestions ? 'btn-primary' : 'btn-outline'}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: 'var(--font-sm)', padding: '8px 16px', borderRadius: '6px' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>forum</span>
+            Dúvidas da Aula (Q&A)
+          </button>
         </div>
 
         {/* ===== STUDENT NOTES PANEL ===== */}
@@ -1138,6 +1534,122 @@ function PlayerContent() {
                     <pre style={{ margin: 0, padding: '12px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '0 0 4px 4px', overflow: 'auto', maxHeight: '300px' }}>
                       <code style={{ color: '#a5f3fc', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.5 }}>{block.code}</code>
                     </pre>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===== QUESTIONS / Q&A PANEL ===== */}
+        {showQuestions && (
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px', marginTop: '15px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', color: 'white', marginBottom: '15px' }}>
+              <span className="material-symbols-outlined" style={{ color: 'var(--accent-cyan)', fontSize: '20px' }}>forum</span>
+              Dúvidas da Aula (Q&A)
+            </h3>
+
+            {/* Post New Question Form */}
+            <form onSubmit={handlePostQuestion} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '25px' }}>
+              <textarea
+                placeholder="Tem alguma dúvida sobre esta aula? Pergunte aqui..."
+                value={newQuestionText}
+                onChange={(e) => setNewQuestionText(e.target.value)}
+                rows={3}
+                style={{ width: '100%', padding: '10px 15px', borderRadius: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '14px', resize: 'vertical' }}
+              />
+              <button
+                type="submit"
+                disabled={submittingQuestion || !newQuestionText.trim()}
+                className="btn btn-primary"
+                style={{ alignSelf: 'flex-end', fontSize: '13px', padding: '6px 15px', cursor: 'pointer' }}
+              >
+                {submittingQuestion ? 'Enviando...' : 'Postar Dúvida'}
+              </button>
+            </form>
+
+            {/* Questions List */}
+            {loadingQuestions ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Carregando dúvidas...</p>
+            ) : questions.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Nenhuma dúvida registrada para esta aula. Seja o primeiro a perguntar!</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {questions.map((question) => (
+                  <div key={question.id} style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '8px', padding: '15px' }}>
+                    
+                    {/* Parent Question Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                      {question.userAvatar ? (
+                        <img src={question.userAvatar} alt={question.userName} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--accent-blue)', display: 'flex', alignItems: 'center', justifySelf: 'center', fontSize: '12px', fontWeight: 'bold', justifyContent: 'center' }}>
+                          {question.userName?.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <strong style={{ fontSize: '13px', color: 'white' }}>{question.userName}</strong>
+                        <span style={{ fontSize: '10px', color: 'var(--text-secondary)', marginLeft: '8px' }}>
+                          {new Date(question.createdAt).toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Question Content */}
+                    <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)', lineHeight: 1.5, whiteSpace: 'pre-wrap', margin: '0 0 12px 0' }}>
+                      {question.content}
+                    </p>
+
+                    {/* Replies */}
+                    {question.replies && question.replies.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginLeft: '20px', borderLeft: '2px solid rgba(255,255,255,0.05)', paddingLeft: '15px', marginBottom: '15px' }}>
+                        {question.replies.map((reply) => (
+                          <div key={reply.replyId} style={{ background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '6px', border: reply.role === 'admin' ? '1px solid rgba(139, 92, 246, 0.15)' : 'none' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              {reply.userAvatar ? (
+                                <img src={reply.userAvatar} alt={reply.userName} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
+                              ) : (
+                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: reply.role === 'admin' ? 'var(--accent-purple)' : 'var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
+                                  {reply.userName?.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <strong style={{ fontSize: '12px', color: 'white' }}>
+                                  {reply.userName} 
+                                  {reply.role === 'admin' && <span style={{ marginLeft: '5px', fontSize: '9px', background: 'rgba(139, 92, 246, 0.2)', color: 'var(--accent-purple)', padding: '1px 4px', borderRadius: '3px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>ADMIN</span>}
+                                </strong>
+                                <span style={{ fontSize: '9px', color: 'var(--text-secondary)', marginLeft: '6px' }}>
+                                  {new Date(reply.createdAt).toLocaleString('pt-BR')}
+                                </span>
+                              </div>
+                            </div>
+                            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, margin: 0, whiteSpace: 'pre-wrap' }}>
+                              {reply.content}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Post Reply Box */}
+                    <div style={{ display: 'flex', gap: '10px', marginLeft: '20px' }}>
+                      <input
+                        type="text"
+                        placeholder="Responder a esta dúvida..."
+                        value={replyTextMap[question.id] || ''}
+                        onChange={(e) => setReplyTextMap(prev => ({ ...prev, [question.id]: e.target.value }))}
+                        style={{ flexGrow: 1, padding: '6px 12px', borderRadius: '4px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '13px' }}
+                      />
+                      <button
+                        onClick={() => handlePostReply(question.id)}
+                        disabled={submittingReplyId === question.id || !(replyTextMap[question.id] || '').trim()}
+                        className="btn btn-sm btn-primary"
+                        style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer' }}
+                      >
+                        {submittingReplyId === question.id ? '...' : 'Responder'}
+                      </button>
+                    </div>
+
                   </div>
                 ))}
               </div>
