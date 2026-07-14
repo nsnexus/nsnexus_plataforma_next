@@ -1,33 +1,19 @@
 import React from 'react';
 import Link from 'next/link';
-import { CountdownTimer } from './CountdownTimer';
 
 export const CourseCard = ({ course }) => {
-  const isBiblioteca = course.id === 'biblioteca-prompts-ia';
+  const isFlagship = course.id === 'sistemas-sharepoint-moderno';
+  const suffix = typeof course.lessonsCount === 'number' ? ' aulas' : '';
   
-  let metaHtml;
-  if (isBiblioteca) {
-    metaHtml = (
-      <>
-        <span>{course.duration}</span>
-        <span>•</span>
-        <span>{course.lessonsCount}</span>
-        <span>•</span>
-        <span>{course.level}</span>
-      </>
-    );
-  } else {
-    const suffix = typeof course.lessonsCount === 'number' ? ' aulas' : '';
-    metaHtml = (
-      <>
-        <span>{course.duration}</span>
-        <span>•</span>
-        <span>{course.lessonsCount}{suffix}</span>
-        <span>•</span>
-        <span>{course.level}</span>
-      </>
-    );
-  }
+  const metaHtml = (
+    <>
+      <span>{course.duration}</span>
+      <span>•</span>
+      <span>{course.lessonsCount}{suffix}</span>
+      <span>•</span>
+      <span>{course.level}</span>
+    </>
+  );
 
   const isClosed = course.isClosed;
   const priceHtml = isClosed ? (
@@ -42,11 +28,11 @@ export const CourseCard = ({ course }) => {
   const btnHtml = isClosed ? (
     <Link href={`/curso/${course.id}`} className="btn btn-sm btn-secondary">Encomendar</Link>
   ) : (
-    <Link href={`/curso/${course.id}`} className="btn btn-sm btn-outline">Saber Mais</Link>
+    <Link href={`/curso/${course.id}`} className={`btn btn-sm ${isFlagship ? 'btn-primary' : 'btn-outline'}`}>{isFlagship ? 'Garantir Vaga' : 'Saber Mais'}</Link>
   );
 
   return (
-    <div className="course-card">
+    <div className={`course-card ${isFlagship ? 'course-card--flagship' : ''}`}>
       <div className="course-card__thumb">
         <img src={course.banner} alt={course.title} />
         <div className="course-card__badge-group">
@@ -54,13 +40,6 @@ export const CourseCard = ({ course }) => {
         </div>
       </div>
       <div className="course-card__content">
-        {isBiblioteca && (
-          <div className="course-card__promo-timer" style={{ display: 'flex', alignItems: 'center' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '14px', marginRight: '4px' }}>alarm</span>
-            Promoção acaba em: &nbsp;
-            <CountdownTimer />
-          </div>
-        )}
         <div className="course-card__meta">
           {metaHtml}
         </div>

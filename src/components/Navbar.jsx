@@ -60,11 +60,7 @@ export const Navbar = () => {
                   Cursos
                 </Link>
               </li>
-              <li>
-                <Link href="/biblioteca-prompts" className={linkClass('/biblioteca-prompts')}>
-                  Prompts
-                </Link>
-              </li>
+
               <li>
                 <Link href="/servicos" className={linkClass('/servicos')}>
                   Consultoria
@@ -121,9 +117,7 @@ export const Navbar = () => {
           <li>
             <Link href="/cursos" className="mobile-nav__link" onClick={toggleMobileMenu}>Cursos</Link>
           </li>
-          <li>
-            <Link href="/biblioteca-prompts" className="mobile-nav__link" onClick={toggleMobileMenu}>Prompts</Link>
-          </li>
+
           <li>
             <Link href="/servicos" className="mobile-nav__link" onClick={toggleMobileMenu}>Consultoria</Link>
           </li>

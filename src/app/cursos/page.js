@@ -57,7 +57,7 @@ function CursosContent() {
             onClick={() => setActiveCategory('ia')} 
             className={`btn btn-sm ${activeCategory === 'ia' ? 'btn-primary' : 'btn-outline'}`}
           >
-            IA & Prompts ({courses.filter(c => c.category === 'ia').length})
+            IA para Negócios ({courses.filter(c => c.category === 'ia').length})
           </button>
           <button 
             onClick={() => setActiveCategory('sistemas')} 

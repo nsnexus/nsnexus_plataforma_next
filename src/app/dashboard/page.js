@@ -987,7 +987,6 @@ function DashboardContent() {
             myEbooks.length > 0 ? (
               <div className="card-grid">
                 {myEbooks.map(course => {
-                  const isBiblioteca = course.id === 'biblioteca-prompts-ia';
                   const { percentage, completedCount, totalCount } = getCourseProgress(course);
                   return (
                     <div key={course.id} className="course-card">
@@ -1000,28 +999,20 @@ function DashboardContent() {
                       <div className="course-card__content" style={{ display: 'flex', flexDirection: 'column', height: 'auto' }}>
                         <h3 className="course-card__title" style={{ marginTop: '0' }}>{course.title}</h3>
                         
-                        {!isBiblioteca && (
-                          <div style={{ margin: 'var(--space-4) 0' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                              <span>Leitura</span>
-                              <span>{percentage}% ({completedCount}/{totalCount} cap.)</span>
-                            </div>
-                            <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                              <div style={{ width: `${percentage}%`, height: '100%', background: 'var(--accent-cyan)', transition: 'width 0.3s' }}></div>
-                            </div>
+                        <div style={{ margin: 'var(--space-4) 0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                            <span>Leitura</span>
+                            <span>{percentage}% ({completedCount}/{totalCount} cap.)</span>
                           </div>
-                        )}
+                          <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${percentage}%`, height: '100%', background: 'var(--accent-cyan)', transition: 'width 0.3s' }}></div>
+                          </div>
+                        </div>
 
                         <div style={{ marginTop: 'auto', paddingTop: 'var(--space-4)' }}>
-                          {isBiblioteca ? (
-                            <Link href="/biblioteca-prompts" className="btn btn-primary btn-full" style={{ justifyContent: 'center' }}>
-                              Acessar Biblioteca
-                            </Link>
-                          ) : (
-                            <Link href={getContinueLink(course)} className="btn btn-primary btn-full" style={{ justifyContent: 'center' }}>
-                              {completedCount > 0 ? 'Continuar Leitura' : 'Ler E-book'}
-                            </Link>
-                          )}
+                          <Link href={getContinueLink(course)} className="btn btn-primary btn-full" style={{ justifyContent: 'center' }}>
+                            {completedCount > 0 ? 'Continuar Leitura' : 'Ler E-book'}
+                          </Link>
                         </div>
                       </div>
                     </div>

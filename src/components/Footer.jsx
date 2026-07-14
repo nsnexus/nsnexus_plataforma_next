@@ -59,7 +59,6 @@ export const Footer = () => {
             <ul className="footer__links">
               <li><Link href="/">Início</Link></li>
               <li><Link href="/cursos">Cursos & Treinamentos</Link></li>
-              <li><Link href="/biblioteca-prompts">Biblioteca de Prompts</Link></li>
               <li><Link href="/servicos">Consultoria sob Demanda</Link></li>
             </ul>
           </div>

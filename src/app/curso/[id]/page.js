@@ -167,7 +167,6 @@ export default function CursoDetalhePage() {
     );
   }
 
-  const isBiblioteca = course.id === 'biblioteca-prompts-ia';
   const isEnrolled = user && user.enrolledCourses && user.enrolledCourses.includes(course.id);
   const isClosed = course.isClosed;
   const totalLessons = course.syllabus?.reduce((acc, mod) => acc + (mod.lessons?.length || 0), 0) || 0;
@@ -215,7 +214,7 @@ export default function CursoDetalhePage() {
               <div>
                 <div style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)', textTransform: 'uppercase' }}>Atividades</div>
                 <div style={{ fontWeight: 'bold', fontSize: 'var(--font-lg)', color: 'var(--accent-cyan)' }}>
-                  {isBiblioteca ? course.lessonsCount : `${totalLessons} Aulas`}
+                  {typeof course.lessonsCount === 'number' ? `${course.lessonsCount} Aulas` : (course.lessonsCount || `${totalLessons} Aulas`)}
                 </div>
               </div>
               <div>
@@ -274,30 +273,12 @@ export default function CursoDetalhePage() {
                 <img src={`/${course.banner}`} alt={course.title} style={{ width: '100%', objectFit: 'cover' }} />
               </div>
 
-              {isBiblioteca && (
-                <>
-                  <div className="course-card__promo-timer" style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '14px', marginRight: '4px' }}>alarm</span>
-                    Promoção acaba em: &nbsp;
-                    <CountdownTimer />
-                  </div>
-                  <div style={{ 
-                    background: 'rgba(0, 245, 212, 0.1)', 
-                    border: '1px solid rgba(0, 245, 212, 0.25)', 
-                    borderRadius: 'var(--radius-md)', 
-                    padding: 'var(--space-3) var(--space-4)', 
-                    marginBottom: 'var(--space-4)', 
-                    fontSize: '11px',
-                    color: '#00f5d4',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    lineHeight: 1.4
-                  }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '18px', flexShrink: 0 }}>workspace_premium</span>
-                    <span><strong>SUPER BÔNUS:</strong> Comprando a biblioteca de prompts, você ganha acesso grátis e imediato ao <strong>E-book: Sistemas & Vídeos Virais com IA</strong> (Valor original de R$ 49,90)!</span>
-                  </div>
-                </>
+              {course.id === 'sistemas-sharepoint-moderno' && (
+                <div className="course-card__promo-timer" style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '14px', marginRight: '4px' }}>alarm</span>
+                  Promoção acaba em: &nbsp;
+                  <CountdownTimer />
+                </div>
               )}
 
               {/* Pricing details */}
@@ -326,7 +307,7 @@ export default function CursoDetalhePage() {
               </div>
 
               {isEnrolled ? (
-                <Link href={course.id === 'biblioteca-prompts-ia' ? '/biblioteca-prompts' : `/player/${course.id}/${course.syllabus?.[0]?.lessons?.[0]?.id || ''}`} className="btn btn-primary btn-full" style={{ justifyContent: 'center' }}>
+                <Link href={`/player/${course.id}/${course.syllabus?.[0]?.lessons?.[0]?.id || ''}`} className="btn btn-primary btn-full" style={{ justifyContent: 'center' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '20px', marginRight: '5px' }}>menu_book</span> Estudar Agora
                 </Link>
               ) : isClosed ? (

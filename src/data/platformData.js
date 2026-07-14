@@ -1,48 +1,18 @@
 export const COURSES_DATA = [
   {
-    id: "biblioteca-prompts-ia",
-    title: "Biblioteca de Prompts NSNexus: IA para Negócios",
-    description: "Acesse nosso acervo completo com prompts estruturados de alta performance para ChatGPT, Gemini e Microsoft Copilot. Automatize relatórios, analise dados de forma preditiva e otimize a rotina operacional da sua área.",
-    price: 49.90,
-    originalPrice: 197.00,
-    paymentLink: "https://mpago.la/2aRktmV", // Link de pagamento real de R$ 99,00 do Mercado Pago
-    duration: "23 Categorias",
-    lessonsCount: "+2.500 Prompts",
-    instructor: "Criado por especialistas em IA",
-    type: "pdf",
-    category: "ia",
-    badgeClass: "badge-ia",
-    badgeLabel: "IA & Prompts",
-    level: "Todos os Níveis",
-    rating: 4.95,
-    reviewsCount: 184,
-    banner: "images/biblioteca.jpeg",
-    syllabus: [
-      {
-        moduleTitle: "Nossos Prompts Organizacionais por Área",
-        lessons: [
-          { id: "cat-1", title: "Negócios, Planejamento Estratégico, RH e Vendas", duration: "250 prompts", type: "pdf" },
-          { id: "cat-2", title: "Automação, Make/Zapier, M365 e Engenharia de Prompt", duration: "300 prompts", type: "pdf" },
-          { id: "cat-3", title: "Design Visual, Imagens (Midjourney/DALL-E) e Vídeos (Runway/Sora)", duration: "350 prompts", type: "pdf" },
-          { id: "cat-4", title: "Copywriting, E-mail Marketing, LinkedIn, Instagram e SEO", duration: "300 prompts", type: "pdf" }
-        ]
-      }
-    ]
-  },
-  {
     id: "sistemas-sharepoint-moderno",
     title: "Criação de Sistemas Web no SharePoint Moderno",
     description: "Substitua o Power Apps e economize com licenças extras. Aprenda a configurar portais corporativos e cadastros no SharePoint sem precisar de programação! O curso é ensinado por profissional especializado através de um agente de IA exclusivo que será compartilhado e configurado passo-a-passo.",
-    price: 249.00,
-    originalPrice: 497.00,
+    price: 250.00,
+    originalPrice: 599.00,
     paymentLink: "https://mpago.la/2GNXFeY", // Link de pagamento real de R$ 249,00 do Mercado Pago
     duration: "8 horas",
     lessonsCount: "Agente de IA",
     instructor: "Ensinado por profissional via Agente (No-Code)",
     type: "service",
     category: "sistemas",
-    badgeClass: "badge-systems",
-    badgeLabel: "Sistemas & SharePoint",
+    badgeClass: "badge-featured",
+    badgeLabel: "⭐ CARRO CHEFE - MAIS VENDIDO",
     level: "Desenvolvimento No-Code",
     rating: 4.9,
     reviewsCount: 142,

@@ -15,6 +15,7 @@ import {
   getDoc, 
   setDoc, 
   updateDoc, 
+  deleteDoc,
   collection, 
   getDocs, 
   query, 
@@ -45,8 +46,47 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (data && data.length > 0) {
+        // Run database sync for course changes in background
+        try {
+          const hasOldPromptLib = data.some(c => c.id === 'biblioteca-prompts-ia');
+          if (hasOldPromptLib) {
+            deleteDoc(doc(db, 'courses', 'biblioteca-prompts-ia')).catch(err => 
+              console.error("Error deleting old prompts course doc:", err)
+            );
+          }
+          const systemsCourse = data.find(c => c.id === 'sistemas-sharepoint-moderno');
+          if (systemsCourse && (systemsCourse.price !== 250 || systemsCourse.originalPrice !== 599 || systemsCourse.badgeClass !== 'badge-featured')) {
+            updateDoc(doc(db, 'courses', 'sistemas-sharepoint-moderno'), {
+              price: 250.00,
+              originalPrice: 599.00,
+              badgeClass: 'badge-featured',
+              badgeLabel: '⭐ CARRO CHEFE - MAIS VENDIDO'
+            }).catch(err => 
+              console.error("Error updating systems course price doc:", err)
+            );
+          }
+        } catch (syncErr) {
+          console.error("Error syncing Firestore course data:", syncErr);
+        }
+
+        // Filter out prompts course and update pricing locally
+        const cleanedData = data
+          .filter(c => c.id !== 'biblioteca-prompts-ia')
+          .map(c => {
+            if (c.id === 'sistemas-sharepoint-moderno') {
+              return {
+                ...c,
+                price: 250.00,
+                originalPrice: 599.00,
+                badgeClass: 'badge-featured',
+                badgeLabel: '⭐ CARRO CHEFE - MAIS VENDIDO'
+              };
+            }
+            return c;
+          });
+
         // Firebase documents use our standard camelCase format
-        const mapped = data.map(c => ({
+        const mapped = cleanedData.map(c => ({
           id: c.id,
           title: c.title,
           description: c.description,
@@ -120,10 +160,7 @@ export const AuthProvider = ({ children }) => {
         enrolledCourses.push(doc.data().course_id);
       });
 
-      // Bônus logic: Auto-unlock eBook if user bought Prompt Library
-      if (enrolledCourses.includes('biblioteca-prompts-ia') && !enrolledCourses.includes('ebook-ia-negocios')) {
-        enrolledCourses.push('ebook-ia-negocios');
-      }
+      // Bonus logic for prompt library removed as it was deprecated
 
       // Auto-unlock E-book and Audiobook homologation code removed to prevent unauthorized access in production.
 
@@ -171,7 +208,7 @@ export const AuthProvider = ({ children }) => {
             avatar_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop",
             role: "admin",
             progress: {},
-            enrolledCourses: ["ebook-ia-negocios", "audiobook-ia-negocios", "biblioteca-prompts-ia", "sistemas-sharepoint-moderno", "landing-page-whatsapp"],
+            enrolledCourses: ["ebook-ia-negocios", "audiobook-ia-negocios", "sistemas-sharepoint-moderno", "landing-page-whatsapp"],
             completedCourses: []
           };
           setUser(mockUser);

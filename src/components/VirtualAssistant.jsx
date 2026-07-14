@@ -7,10 +7,9 @@ Você é a "Fabi", a Assistente Virtual inteligente da NSNexus (plataforma de cu
 Seu objetivo principal é ajudar os visitantes do site, tirar dúvidas sobre os cursos e guiar leads interessados a fechar negócios ou solicitar orçamentos.
 
 Aqui está o seu catálogo de produtos e serviços para consulta:
-1. Biblioteca de Prompts NSNexus (IA para Negócios): Custa R$ 49,90 (acesso vitalício a +2.500 prompts + E-book 'Sistemas & Vídeos Virais com IA' Grátis de bônus). O link para adquirir na plataforma é: /curso/biblioteca-prompts-ia
-2. Sistemas no SharePoint Moderno (Criação de Sistemas Web): Custa R$ 249,00 (portais e cadastros sem programação). O link para adquirir na plataforma é: /curso/sistemas-sharepoint-moderno
-3. Landing Page para WhatsApp (Serviço Expresso): Custa R$ 149,00 (site de alta conversão entregue em até 3 dias). O link para adquirir na plataforma é: /curso/landing-page-whatsapp
-4. Treinamentos Particulares / Consultorias VIP sob encomenda (Power BI, Power Apps, Power Automate, IA Corporativa): São oferecidos sob consulta.
+1. Sistemas no SharePoint Moderno (Criação de Sistemas Web): Nosso curso carro-chefe! Ensina a configurar portais corporativos e cadastros no SharePoint sem precisar de programação. Custa R$ 250,00 (Preço promocional, de R$ 599,00 por R$ 250,00). O link para adquirir na plataforma é: /curso/sistemas-sharepoint-moderno
+2. Landing Page para WhatsApp (Serviço Expresso): Custa R$ 149,00 (site de alta conversão entregue em até 3 dias). O link para adquirir na plataforma é: /curso/landing-page-whatsapp
+3. Treinamentos Particulares / Consultorias VIP sob encomenda (Power BI, Power Apps, Power Automate, IA Corporativa): São oferecidos sob consulta.
    - Se o cliente perguntar sobre como aprender Power BI, Power Apps, criar aplicativos corporativos ou pedir orçamentos para a sua empresa, explique que oferecemos treinamento individual (VIP) e corporativos customizados.
    - Oriente-o a solicitar uma cotação/orçamento diretamente com o instrutor via WhatsApp.
    - Forneça o link direto para o WhatsApp do instrutor: https://wa.me/5594991081351?text=Ola!%20Gostaria%20de%20solicitar%20um%20orcamento%20para%20treinamento%20particular.
@@ -32,19 +31,11 @@ Para solicitar uma cotação ou agendar um escopo sob medida, clique no link aba
 [👉 Solicitar Cotação de Power BI](https://wa.me/5594991081351?text=Ola!%20Gostaria%20de%20solicitar%20um%20orcamento%20para%20treinamento%20particular%20de%20Power%20BI.)`
   },
   { 
-    id: 'prompt_lib', 
-    label: '🚀 Biblioteca + E-book Grátis (R$ 49,90)', 
-    reply: `A **Biblioteca de Prompts NSNexus: IA para Negócios** te dá acesso a mais de 2.500 prompts profissionais prontos para copiar e colar no ChatGPT, Gemini ou Copilot.
-
-Por apenas **R$ 49,90 (acesso vitalício)**, você leva a biblioteca completa e ainda ganha o E-book **'Sistemas & Vídeos Virais com IA'** inteiramente grátis de bônus!
-[👉 Ir para a Página de Compra](/curso/biblioteca-prompts-ia)`
-  },
-  { 
     id: 'sharepoint_sys', 
-    label: '📂 Sistemas & SharePoint (R$ 249)', 
-    reply: `Aprenda a criar portais corporativos e cadastros robustos no SharePoint Moderno economizando com licenças extras de Power Apps.
+    label: '📂 Sistemas & SharePoint (R$ 250)', 
+    reply: `Aprenda a criar portais corporativos e cadastros robustos no SharePoint Moderno economizando com licenças extras de Power Apps. O curso é nosso carro-chefe!
 
-Por apenas **R$ 249,00**, você aprende passo a passo com o auxílio de um Agente de IA exclusivo.
+Por apenas **R$ 250,00** (Promoção: de R$ 599,00 por R$ 250,00), você aprende passo a passo com o auxílio de um Agente de IA exclusivo.
 [👉 Conhecer o Curso de SharePoint](/curso/sistemas-sharepoint-moderno)`
   },
   { 

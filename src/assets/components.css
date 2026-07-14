@@ -100,6 +100,18 @@
   box-shadow: var(--shadow-cyan-glow);
 }
 
+.course-card--flagship {
+  border: 1.5px solid rgba(0, 245, 212, 0.4) !important;
+  box-shadow: 0 0 20px rgba(0, 245, 212, 0.08) !important;
+  transform: scale(1.01);
+}
+
+.course-card--flagship:hover {
+  border-color: rgba(0, 245, 212, 0.6) !important;
+  box-shadow: var(--shadow-cyan-glow) !important;
+  transform: translateY(-5px) scale(1.02) !important;
+}
+
 .course-card__thumb {
   position: relative;
   aspect-ratio: 16/9;
@@ -217,6 +229,13 @@
   background: rgba(0, 245, 212, 0.1);
   color: #22d3ee;
   border: 1px solid rgba(0, 245, 212, 0.2);
+}
+
+.badge-featured {
+  background: linear-gradient(135deg, rgba(0, 245, 212, 0.25) 0%, rgba(0, 102, 255, 0.25) 100%);
+  color: #00f5d4;
+  border: 1px solid rgba(0, 245, 212, 0.45);
+  box-shadow: 0 0 10px rgba(0, 245, 212, 0.2);
 }
 
 .badge-systems {
