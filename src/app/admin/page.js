@@ -1,10 +1,12 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '../../utils/firebase/client';
+import { db, storage } from '../../utils/firebase/client';
 import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore/lite';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../../context/AuthContext';
 import AdminRoute from '../../components/AdminRoute';
+
 
 function getProjectCover(proj) {
   if (!proj.isStatic && proj.mediaUrl) {
@@ -110,6 +112,62 @@ function AdminContent() {
     description: ''
   });
   const [addToModuleIndex, setAddToModuleIndex] = useState(0);
+
+  // Storage Upload state & handler
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadFileName, setUploadFileName] = useState('');
+
+  const handleFileUpload = (e, targetField) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingFile(true);
+    setUploadProgress(0);
+    setUploadFileName(file.name);
+
+    const timestamp = Date.now();
+    const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const storagePath = `lessons/${timestamp}_${cleanFileName}`;
+    const storageRef = ref(storage, storagePath);
+
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        setUploadProgress(progress);
+      },
+      (error) => {
+        console.error('Erro no upload para o Storage:', error);
+        alert('Erro ao fazer upload do arquivo para o Firebase Storage.');
+        setUploadingFile(false);
+      },
+      async () => {
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          if (targetField === 'downloadUrl') {
+            setLessonForm(prev => ({
+              ...prev,
+              downloadUrl: downloadURL,
+              downloadName: prev.downloadName || file.name
+            }));
+          } else if (targetField === 'fileUrl') {
+            setLessonForm(prev => ({ ...prev, fileUrl: downloadURL }));
+          } else if (targetField === 'url') {
+            setLessonForm(prev => ({ ...prev, url: downloadURL }));
+          }
+        } catch (err) {
+          console.error('Erro ao buscar URL do arquivo:', err);
+          alert('Erro ao obter a URL pública do arquivo enviado.');
+        } finally {
+          setUploadingFile(false);
+        }
+      }
+    );
+  };
+
 
   // Fetch all profiles and purchases from Firestore
   const loadData = async () => {
@@ -1948,7 +2006,7 @@ function AdminContent() {
 
               {/* AUDIO */}
               {lessonForm.type === 'audio' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', background: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', borderRadius: '8px', padding: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', borderRadius: '8px', padding: '15px' }}>
                   <label style={{ fontSize: '12px', color: '#f472b6', fontWeight: 'bold' }}>🎧 URL do Áudio (MP3, WAV, etc.)</label>
                   <input
                     type="text"
@@ -1957,12 +2015,34 @@ function AdminContent() {
                     placeholder="https://storage.googleapis.com/.../audio.mp3"
                     style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
                   />
+                  <div style={{ padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px dashed rgba(236,72,153,0.3)', borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        {uploadingFile ? `Enviando ${uploadFileName}... (${uploadProgress}%)` : '☁️ Fazer upload direto para o Firebase Storage'}
+                      </span>
+                      <label className="btn btn-outline" style={{ fontSize: '11px', padding: '4px 10px', cursor: uploadingFile ? 'not-allowed' : 'pointer', margin: 0 }}>
+                        {uploadingFile ? `${uploadProgress}%` : 'Selecionar Áudio'}
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          disabled={uploadingFile}
+                          onChange={(e) => handleFileUpload(e, 'url')}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                    </div>
+                    {uploadingFile && (
+                      <div style={{ width: '100%', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', height: '6px', marginTop: '8px', overflow: 'hidden' }}>
+                        <div style={{ width: `${uploadProgress}%`, background: '#f472b6', height: '100%', transition: 'width 0.2s' }} />
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               {/* PDF */}
               {lessonForm.type === 'pdf' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '8px', padding: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '8px', padding: '15px' }}>
                   <label style={{ fontSize: '12px', color: '#f87171', fontWeight: 'bold' }}>📄 URL do PDF para Visualização Embutida</label>
                   <input
                     type="text"
@@ -1971,6 +2051,28 @@ function AdminContent() {
                     placeholder="https://firebasestorage.googleapis.com/.../file.pdf"
                     style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
                   />
+                  <div style={{ padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px dashed rgba(239,68,68,0.3)', borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        {uploadingFile ? `Enviando ${uploadFileName}... (${uploadProgress}%)` : '☁️ Fazer upload direto para o Firebase Storage'}
+                      </span>
+                      <label className="btn btn-outline" style={{ fontSize: '11px', padding: '4px 10px', cursor: uploadingFile ? 'not-allowed' : 'pointer', margin: 0 }}>
+                        {uploadingFile ? `${uploadProgress}%` : 'Selecionar PDF'}
+                        <input
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          disabled={uploadingFile}
+                          onChange={(e) => handleFileUpload(e, 'fileUrl')}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                    </div>
+                    {uploadingFile && (
+                      <div style={{ width: '100%', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', height: '6px', marginTop: '8px', overflow: 'hidden' }}>
+                        <div style={{ width: `${uploadProgress}%`, background: '#f87171', height: '100%', transition: 'width 0.2s' }} />
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1993,6 +2095,27 @@ function AdminContent() {
                       placeholder="projeto-starter.zip"
                       style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
                     />
+                  </div>
+                  <div style={{ padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px dashed rgba(245,158,11,0.3)', borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        {uploadingFile ? `Enviando ${uploadFileName}... (${uploadProgress}%)` : '☁️ Fazer upload direto para o Firebase Storage'}
+                      </span>
+                      <label className="btn btn-outline" style={{ fontSize: '11px', padding: '4px 10px', cursor: uploadingFile ? 'not-allowed' : 'pointer', margin: 0 }}>
+                        {uploadingFile ? `${uploadProgress}%` : 'Selecionar Arquivo'}
+                        <input
+                          type="file"
+                          disabled={uploadingFile}
+                          onChange={(e) => handleFileUpload(e, 'downloadUrl')}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                    </div>
+                    {uploadingFile && (
+                      <div style={{ width: '100%', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', height: '6px', marginTop: '8px', overflow: 'hidden' }}>
+                        <div style={{ width: `${uploadProgress}%`, background: '#fbbf24', height: '100%', transition: 'width 0.2s' }} />
+                      </div>
+                    )}
                   </div>
                   <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0 }}>Nome do arquivo é o que o aluno verá no botão de download.</p>
                 </div>
