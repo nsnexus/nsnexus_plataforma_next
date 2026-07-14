@@ -155,19 +155,34 @@ function AdminContent() {
       async () => {
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          console.log('[DEBUG] Upload do arquivo concluído com sucesso!');
+          console.log('[DEBUG] URL obtida do Firebase Storage:', downloadURL);
+
           if (targetField === 'downloadUrl') {
-            setLessonForm(prev => ({
-              ...prev,
-              downloadUrl: downloadURL,
-              downloadName: prev.downloadName || file.name
-            }));
+            setLessonForm(prev => {
+              const updated = {
+                ...prev,
+                downloadUrl: downloadURL,
+                downloadName: prev.downloadName || file.name
+              };
+              console.log('[DEBUG] Estado lessonForm atualizado com downloadUrl:', updated.downloadUrl);
+              return updated;
+            });
           } else if (targetField === 'fileUrl') {
-            setLessonForm(prev => ({ ...prev, fileUrl: downloadURL }));
+            setLessonForm(prev => {
+              const updated = { ...prev, fileUrl: downloadURL };
+              console.log('[DEBUG] Estado lessonForm atualizado com fileUrl:', updated.fileUrl);
+              return updated;
+            });
           } else if (targetField === 'url') {
-            setLessonForm(prev => ({ ...prev, url: downloadURL }));
+            setLessonForm(prev => {
+              const updated = { ...prev, url: downloadURL };
+              console.log('[DEBUG] Estado lessonForm atualizado com url:', updated.url);
+              return updated;
+            });
           }
         } catch (err) {
-          console.error('Erro ao buscar URL do arquivo:', err);
+          console.error('[DEBUG] Erro ao buscar URL do arquivo:', err);
           alert('Erro ao obter a URL pública do arquivo enviado.');
         } finally {
           setUploadingFile(false);
@@ -765,6 +780,9 @@ function AdminContent() {
       return;
     }
     const lessonData = { ...lessonForm };
+    
+    console.log('[DEBUG] Dados originais no formulário antes de salvar a aula:', lessonForm);
+
     // Clean unused fields based on type
     if (lessonData.type !== 'video') { lessonData.url = lessonData.url || ''; }
     if (lessonData.type !== 'code') { delete lessonData.codeBlocks; }
@@ -775,6 +793,8 @@ function AdminContent() {
     if (lessonData.type !== 'quiz') { delete lessonData.quizQuestions; }
     if (!lessonData.description) { delete lessonData.description; }
 
+    console.log('[DEBUG] Dados da aula limpos prontos para salvar no syllabus:', lessonData);
+
     setContentSyllabus(prev => {
       const updated = JSON.parse(JSON.stringify(prev));
       if (editingLessonPath) {
@@ -783,6 +803,7 @@ function AdminContent() {
         if (!updated[addToModuleIndex].lessons) updated[addToModuleIndex].lessons = [];
         updated[addToModuleIndex].lessons.push(lessonData);
       }
+      console.log('[DEBUG] Lista contentSyllabus atualizada na memória:', updated);
       return updated;
     });
     setShowLessonModal(false);
@@ -2734,6 +2755,11 @@ function AdminContent() {
                       style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
                     />
                   </div>
+                  {lessonForm.downloadUrl && (
+                    <p style={{ fontSize: '11px', color: '#10b981', margin: '2px 0 0 0', fontWeight: 'bold' }}>
+                      ✓ Link de download detectado! Pronto para salvar.
+                    </p>
+                  )}
                   <div style={{ padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px dashed rgba(245,158,11,0.2)', borderRadius: '6px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
