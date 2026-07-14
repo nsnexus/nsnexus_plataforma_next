@@ -502,8 +502,8 @@ function CheckoutContent() {
 
         </div>
 
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
 
