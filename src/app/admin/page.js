@@ -2190,7 +2190,7 @@ function AdminContent() {
       {/* ========== MODAL: LESSON ADD/EDIT ========== */}
       {showLessonModal && (
         <div className="video-modal video-modal--active" onClick={() => setShowLessonModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)' }}>
-          <div className="video-modal__content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px', width: '95%', background: '#0f172a', border: '1px solid var(--border-color)', padding: '25px', borderRadius: '10px', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="video-modal__content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1200px', width: '95%', background: '#0f172a', border: '1px solid var(--border-color)', padding: '25px', borderRadius: '10px', maxHeight: '95vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>
                 {editingLessonPath ? '✏️ Editar Aula' : '➕ Nova Aula'}
