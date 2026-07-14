@@ -149,7 +149,7 @@ function AdminContent() {
       },
       (error) => {
         console.error('Erro no upload para o Storage:', error);
-        alert('Erro ao fazer upload do arquivo para o Firebase Storage.');
+        alert(`Erro ao fazer upload do arquivo para o Firebase Storage: ${error.message || error.code || error}`);
         setUploadingFile(false);
       },
       async () => {
@@ -2711,6 +2711,51 @@ function AdminContent() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* DOWNLOAD OPCIONAL PARA OUTROS TIPOS DE AULA */}
+              {lessonForm.type !== 'download' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(245,158,11,0.02)', border: '1px dashed rgba(245,158,11,0.2)', borderRadius: '8px', padding: '15px' }}>
+                  <label style={{ fontSize: '12px', color: '#fbbf24', fontWeight: 'bold' }}>📥 Arquivo de Download Opcional (Recursos da Aula)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+                    <input
+                      type="text"
+                      value={lessonForm.downloadUrl || ''}
+                      onChange={(e) => setLessonForm({ ...lessonForm, downloadUrl: e.target.value })}
+                      placeholder="URL do arquivo (Firebase Storage, etc.)"
+                      style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                    />
+                    <input
+                      type="text"
+                      value={lessonForm.downloadName || ''}
+                      onChange={(e) => setLessonForm({ ...lessonForm, downloadName: e.target.value })}
+                      placeholder="projeto-starter.zip"
+                      style={{ padding: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
+                    />
+                  </div>
+                  <div style={{ padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px dashed rgba(245,158,11,0.2)', borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        {uploadingFile ? `Enviando ${uploadFileName}... (${uploadProgress}%)` : '☁️ Fazer upload direto para o Firebase Storage'}
+                      </span>
+                      <label className="btn btn-outline" style={{ fontSize: '11px', padding: '4px 10px', cursor: uploadingFile ? 'not-allowed' : 'pointer', margin: 0 }}>
+                        {uploadingFile ? `${uploadProgress}%` : 'Selecionar Arquivo'}
+                        <input
+                          type="file"
+                          disabled={uploadingFile}
+                          onChange={(e) => handleFileUpload(e, 'downloadUrl')}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                    </div>
+                    {uploadingFile && (
+                      <div style={{ width: '100%', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', height: '6px', marginTop: '8px', overflow: 'hidden' }}>
+                        <div style={{ width: `${uploadProgress}%`, background: '#fbbf24', height: '100%', transition: 'width 0.2s' }} />
+                      </div>
+                    )}
+                  </div>
+                  <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0 }}>Deixe em branco se esta aula não contiver nenhum arquivo para download.</p>
                 </div>
               )}
 
