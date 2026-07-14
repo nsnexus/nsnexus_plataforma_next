@@ -768,7 +768,7 @@ function AdminContent() {
     // Clean unused fields based on type
     if (lessonData.type !== 'video') { lessonData.url = lessonData.url || ''; }
     if (lessonData.type !== 'code') { delete lessonData.codeBlocks; }
-    if (lessonData.type !== 'download') { delete lessonData.downloadUrl; delete lessonData.downloadName; }
+    if (!lessonData.downloadUrl) { delete lessonData.downloadUrl; delete lessonData.downloadName; }
     if (lessonData.type !== 'pdf') { delete lessonData.fileUrl; }
     if (lessonData.type !== 'text' && !lessonData.content?.length) { delete lessonData.content; }
     if (lessonData.type !== 'article') { delete lessonData.articleBlocks; }
