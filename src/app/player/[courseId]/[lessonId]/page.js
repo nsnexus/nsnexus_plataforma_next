@@ -773,8 +773,7 @@ function PlayerContent() {
                 )}
               </div>
             </div>
-          ) : (
-            activeLesson.type === 'pdf' ? (
+          ) : activeLesson.type === 'pdf' ? (
             <div className="pdf-viewer" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className="pdf-viewer__header" style={{ padding: 'var(--space-3) var(--space-4)', background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', fontSize: 'var(--font-sm)', alignItems: 'center' }}>
                 <span>{activeLesson.fileUrl ? 'E-book Seguro' : activeLesson.content ? 'Leitor de E-book Seguro' : 'Material Didático'}: <strong>{activeLesson.title}</strong></span>
