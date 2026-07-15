@@ -211,6 +211,7 @@ export default function LoginPage() {
             </div>
 
             <button 
+              type="button"
               onClick={handleGoogleSignIn}
               className="btn btn-secondary btn-full"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', width: '100%' }}

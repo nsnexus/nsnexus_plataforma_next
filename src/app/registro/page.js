@@ -205,6 +205,7 @@ export default function RegistroPage() {
         </div>
 
         <button 
+          type="button"
           onClick={handleGoogleSignUp}
           className="btn btn-secondary btn-full"
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}

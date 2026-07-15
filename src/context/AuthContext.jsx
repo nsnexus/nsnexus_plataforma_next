@@ -249,23 +249,16 @@ export const AuthProvider = ({ children }) => {
     return userCredential.user;
   };
 
-  // Sign In with Google OAuth (using popup - or redirect for mobile)
+  // Sign In with Google OAuth (using popup initially, with debug alerts)
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      try {
-        await signInWithRedirect(auth, provider);
-        // Wait indefinitely as the page will redirect away
-        return new Promise(() => {});
-      } catch (err) {
-        alert("Falha ao iniciar o redirecionamento: " + err.message);
-        throw err;
-      }
-    } else {
+    try {
       const result = await signInWithPopup(auth, provider);
       return result.user;
+    } catch (error) {
+      // Show exact error message to user for debugging
+      alert("Erro no Login do Google: " + error.code + "\n" + error.message);
+      throw error;
     }
   };
 
