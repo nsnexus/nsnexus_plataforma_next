@@ -6,6 +6,8 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   signOut as firebaseSignOut,
   sendPasswordResetEmail
@@ -192,6 +194,10 @@ export const AuthProvider = ({ children }) => {
 
     let active = true;
 
+    // Handle redirect result when returning from Google sign-in on mobile
+    getRedirectResult(auth).catch((error) => {
+      console.error("Redirect result error:", error);
+    });
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!active) return;
@@ -238,11 +244,20 @@ export const AuthProvider = ({ children }) => {
     return userCredential.user;
   };
 
-  // Sign In with Google OAuth (popup on same-domain auth — no third-party cookie issues)
+  // Sign In with Google OAuth
+  // Desktop: popup (fast, seamless)
+  // Mobile: redirect (avoids popup-blocking issues on mobile browsers)
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    return result.user;
+    const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      await signInWithRedirect(auth, provider);
+      return new Promise(() => {});
+    } else {
+      const result = await signInWithPopup(auth, provider);
+      return result.user;
+    }
   };
 
   // Sign Up function
