@@ -1,11 +1,11 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 
 export default function RegistroPage() {
-  const { signUp, signInWithGoogle } = useAuth();
+  const { user, signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   const [name, setName] = useState('');
@@ -17,6 +17,21 @@ export default function RegistroPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Auto-redirect se já estiver logado (útil para quando volta do redirecionamento do Google no celular)
+  useEffect(() => {
+    if (user) {
+      const redirect = localStorage.getItem("post_login_redirect");
+      if (redirect) {
+        localStorage.removeItem("post_login_redirect");
+        window.location.href = redirect;
+      } else if (user.enrolledCourses && user.enrolledCourses.length > 0) {
+        window.location.href = '/dashboard';
+      } else {
+        window.location.href = '/cursos';
+      }
+    }
+  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

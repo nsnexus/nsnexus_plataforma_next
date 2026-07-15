@@ -6,6 +6,7 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signInWithPopup, 
+  signInWithRedirect,
   GoogleAuthProvider, 
   signOut as firebaseSignOut,
   sendPasswordResetEmail
@@ -237,11 +238,19 @@ export const AuthProvider = ({ children }) => {
     return userCredential.user;
   };
 
-  // Sign In with Google OAuth (using popup - no tricky redirects)
+  // Sign In with Google OAuth (using popup - or redirect for mobile)
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    return result.user;
+    const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      await signInWithRedirect(auth, provider);
+      // Wait indefinitely as the page will redirect away
+      return new Promise(() => {});
+    } else {
+      const result = await signInWithPopup(auth, provider);
+      return result.user;
+    }
   };
 
   // Sign Up function
