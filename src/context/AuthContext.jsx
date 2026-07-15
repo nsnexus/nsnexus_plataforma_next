@@ -7,6 +7,7 @@ import {
   createUserWithEmailAndPassword, 
   signInWithPopup, 
   signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   signOut as firebaseSignOut,
   sendPasswordResetEmail
@@ -193,6 +194,16 @@ export const AuthProvider = ({ children }) => {
 
     let active = true;
 
+    // Check for redirect results in case of errors on mobile redirect
+    getRedirectResult(auth).then((result) => {
+      if (result) {
+        console.log("Redirect result successful");
+      }
+    }).catch((error) => {
+      console.error("Error from redirect result:", error);
+      alert("Erro ao retornar do Google: " + error.message);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!active) return;
       
@@ -244,9 +255,14 @@ export const AuthProvider = ({ children }) => {
     const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     
     if (isMobile) {
-      await signInWithRedirect(auth, provider);
-      // Wait indefinitely as the page will redirect away
-      return new Promise(() => {});
+      try {
+        await signInWithRedirect(auth, provider);
+        // Wait indefinitely as the page will redirect away
+        return new Promise(() => {});
+      } catch (err) {
+        alert("Falha ao iniciar o redirecionamento: " + err.message);
+        throw err;
+      }
     } else {
       const result = await signInWithPopup(auth, provider);
       return result.user;
