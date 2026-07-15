@@ -249,15 +249,23 @@ export const AuthProvider = ({ children }) => {
     return userCredential.user;
   };
 
-  // Sign In with Google OAuth (using popup initially, with debug alerts)
+  // Sign In with Google OAuth (using popup initially, with redirect fallback)
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
       return result.user;
     } catch (error) {
-      // Show exact error message to user for debugging
-      alert("Erro no Login do Google: " + error.code + "\n" + error.message);
+      // Se o popup foi fechado pelo usuário, bloqueado pelo navegador celular ou AdBlocker
+      if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+        console.log("Popup bloqueado ou fechado. Tentando signInWithRedirect...");
+        await signInWithRedirect(auth, provider);
+        // Retorna uma promise vazia pois a página vai recarregar no redirecionamento
+        return new Promise(() => {});
+      }
+      
+      // Para outros erros, mostra o alerta
+      alert("Erro no Login do Google: " + error.message);
       throw error;
     }
   };
