@@ -256,9 +256,13 @@ export const AuthProvider = ({ children }) => {
       const result = await signInWithPopup(auth, provider);
       return result.user;
     } catch (error) {
-      // Se o popup foi fechado pelo usuário, bloqueado pelo navegador celular ou AdBlocker
-      if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
-        console.log("Popup bloqueado ou fechado. Tentando signInWithRedirect...");
+      // Se o popup foi fechado pelo usuário, bloqueado pelo navegador celular ou falhou internamente por bloqueio de cookies de terceiros
+      if (
+        error.code === 'auth/popup-blocked' || 
+        error.code === 'auth/popup-closed-by-user' ||
+        error.code === 'auth/internal-error'
+      ) {
+        console.log("Popup falhou. Tentando signInWithRedirect...");
         await signInWithRedirect(auth, provider);
         // Retorna uma promise vazia pois a página vai recarregar no redirecionamento
         return new Promise(() => {});
