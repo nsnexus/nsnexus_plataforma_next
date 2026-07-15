@@ -6,8 +6,6 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signInWithPopup, 
-  signInWithRedirect,
-  getRedirectResult,
   GoogleAuthProvider, 
   signOut as firebaseSignOut,
   sendPasswordResetEmail
@@ -194,15 +192,6 @@ export const AuthProvider = ({ children }) => {
 
     let active = true;
 
-    // Check for redirect results in case of errors on mobile redirect
-    getRedirectResult(auth).then((result) => {
-      if (result) {
-        console.log("Redirect result successful");
-      }
-    }).catch((error) => {
-      console.error("Error from redirect result:", error);
-      alert("Erro ao retornar do Google: " + error.message);
-    });
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!active) return;
@@ -249,29 +238,11 @@ export const AuthProvider = ({ children }) => {
     return userCredential.user;
   };
 
-  // Sign In with Google OAuth (using popup initially, with redirect fallback)
+  // Sign In with Google OAuth (popup on same-domain auth — no third-party cookie issues)
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    try {
-      const result = await signInWithPopup(auth, provider);
-      return result.user;
-    } catch (error) {
-      // Se o popup foi fechado pelo usuário, bloqueado pelo navegador celular ou falhou internamente por bloqueio de cookies de terceiros
-      if (
-        error.code === 'auth/popup-blocked' || 
-        error.code === 'auth/popup-closed-by-user' ||
-        error.code === 'auth/internal-error'
-      ) {
-        console.log("Popup falhou. Tentando signInWithRedirect...");
-        await signInWithRedirect(auth, provider);
-        // Retorna uma promise vazia pois a página vai recarregar no redirecionamento
-        return new Promise(() => {});
-      }
-      
-      // Para outros erros, mostra o alerta
-      alert("Erro no Login do Google: " + error.message);
-      throw error;
-    }
+    const result = await signInWithPopup(auth, provider);
+    return result.user;
   };
 
   // Sign Up function
