@@ -252,19 +252,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Sign In with Google OAuth
-  // Desktop: popup (fast, seamless)
-  // Mobile: redirect (avoids popup-blocking issues on mobile browsers)
+  // Usando signInWithPopup em todos os dispositivos para evitar problemas de cookies particionados / ITP no mobile
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      await signInWithRedirect(auth, provider);
-      return new Promise(() => {});
-    } else {
-      const result = await signInWithPopup(auth, provider);
-      return result.user;
-    }
+    const result = await signInWithPopup(auth, provider);
+    return result.user;
   };
 
   // Sign Up function
