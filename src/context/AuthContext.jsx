@@ -195,7 +195,14 @@ export const AuthProvider = ({ children }) => {
     let active = true;
 
     // Handle redirect result when returning from Google sign-in on mobile
-    getRedirectResult(auth).catch((error) => {
+    getRedirectResult(auth).then((result) => {
+      if (result && result.user) {
+        alert("DEBUG: Login Google OK! Email: " + result.user.email);
+      } else {
+        // result is null — no redirect happened on this page load
+      }
+    }).catch((error) => {
+      alert("DEBUG: Erro no redirect result: " + error.code + " - " + error.message);
       console.error("Redirect result error:", error);
     });
 
