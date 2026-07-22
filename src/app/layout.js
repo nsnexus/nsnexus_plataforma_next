@@ -1,4 +1,5 @@
 import "./globals.css";
+import Script from "next/script";
 import { AuthProvider } from "../context/AuthContext";
 import AppLayout from "../components/AppLayout";
 
@@ -33,6 +34,19 @@ export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
       <head>
+        {/* Google Analytics (GA4) */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-D5C7TKZF51"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-D5C7TKZF51');
+          `}
+        </Script>
         {/* Material Symbols Outlined */}
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
         <link rel="icon" type="image/png" href="/images/logo.png" />
