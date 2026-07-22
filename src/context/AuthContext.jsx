@@ -144,7 +144,8 @@ export const AuthProvider = ({ children }) => {
           role: userEmail === 'narcisofelizardo@gmail.com' ? 'admin' : 'student',
           progress: {},
           bookmarks: {},
-          achievements: []
+          achievements: [],
+          created_at: new Date().toISOString()
         };
 
         await setDoc(profileRef, newProfile);
@@ -273,7 +274,8 @@ export const AuthProvider = ({ children }) => {
       role: email === 'narcisofelizardo@gmail.com' ? 'admin' : 'student',
       progress: {},
       bookmarks: {},
-      achievements: []
+      achievements: [],
+      created_at: new Date().toISOString()
     };
 
     await setDoc(doc(db, 'profiles', userId), newProfile);

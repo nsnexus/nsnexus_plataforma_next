@@ -21,6 +21,24 @@ function getProjectCover(proj) {
   return proj.mediaUrl;
 }
 
+function getUserCreationDate(u, purchases = []) {
+  if (!u) return null;
+  let rawDate = u.created_at || u.createdAt;
+  if (!rawDate && purchases && purchases.length > 0) {
+    const userPurchases = purchases.filter(p => p.user_id === u.id || (p.user_email && u.email && p.user_email.toLowerCase() === u.email.toLowerCase()));
+    if (userPurchases.length > 0) {
+      userPurchases.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+      rawDate = userPurchases[0].created_at;
+    }
+  }
+  if (!rawDate) return null;
+  if (typeof rawDate === 'object' && rawDate.seconds) {
+    return new Date(rawDate.seconds * 1000);
+  }
+  const d = new Date(rawDate);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function AdminContent() {
   const { user, signOut, courses, reloadCourses } = useAuth();
   const router = useRouter();
@@ -196,17 +214,7 @@ function AdminContent() {
   const loadData = async () => {
     setLoadingData(true);
     try {
-      // 1. Fetch profiles
-      const profilesRef = collection(db, 'profiles');
-      const profilesSnap = await getDocs(profilesRef);
-      const profiles = [];
-      profilesSnap.forEach((doc) => {
-        profiles.push(doc.data());
-      });
-      profiles.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-      setDbUsers(profiles);
-
-      // 2. Fetch purchases
+      // 1. Fetch purchases
       const purchasesRef = collection(db, 'purchases');
       const purchasesSnap = await getDocs(purchasesRef);
       const purchases = [];
@@ -218,6 +226,23 @@ function AdminContent() {
       });
       purchases.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
       setDbPurchases(purchases);
+
+      // 2. Fetch profiles (ordenados pelos mais recentes)
+      const profilesRef = collection(db, 'profiles');
+      const profilesSnap = await getDocs(profilesRef);
+      const profiles = [];
+      profilesSnap.forEach((doc) => {
+        profiles.push(doc.data());
+      });
+      profiles.sort((a, b) => {
+        const dateA = getUserCreationDate(a, purchases);
+        const dateB = getUserCreationDate(b, purchases);
+        if (dateA && dateB) return dateB.getTime() - dateA.getTime();
+        if (dateA) return -1;
+        if (dateB) return 1;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+      setDbUsers(profiles);
 
       // 3. Fetch projects
       const projectsRef = collection(db, 'projects');
@@ -280,6 +305,24 @@ function AdminContent() {
       alert('Erro ao atualizar conclusão no Firestore.');
     } finally {
       setSavingCertificates(false);
+    }
+  };
+
+  const handleDeleteUser = async (targetUser) => {
+    const identifier = targetUser.name || targetUser.email || targetUser.id;
+    if (!window.confirm(`Deseja realmente EXCLUIR o usuário "${identifier}"?\nEsta ação é irreversível e removerá o perfil do banco de dados.`)) {
+      return;
+    }
+
+    try {
+      const userRef = doc(db, 'profiles', targetUser.id);
+      await deleteDoc(userRef);
+
+      setDbUsers(prev => prev.filter(u => u.id !== targetUser.id));
+      alert(`Usuário "${identifier}" excluído com sucesso!`);
+    } catch (err) {
+      console.error('[Admin] Erro ao excluir usuário:', err);
+      alert('Erro ao excluir usuário no Firestore: ' + (err.message || err));
     }
   };
 
@@ -1179,32 +1222,57 @@ function AdminContent() {
                             }) : '—'}
                           </td>
                           <td style={{ padding: '15px', color: 'var(--text-muted)' }}>
-                            {u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '—'}
+                            {(() => {
+                              const d = getUserCreationDate(u, dbPurchases);
+                              return d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+                            })()}
                           </td>
                           <td style={{ padding: '15px' }}>
-                            <button
-                              onClick={() => {
-                                setSelectedUser(u);
-                                setShowCertificatesModal(true);
-                              }}
-                              className="btn btn-sm"
-                              style={{ 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '5px', 
-                                borderColor: '#d97706', 
-                                color: '#f59e0b',
-                                background: 'transparent',
-                                border: '1px solid #d97706',
-                                padding: '5px 10px',
-                                cursor: 'pointer',
-                                borderRadius: '4px',
-                                fontSize: '11px'
-                              }}
-                            >
-                              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>workspace_premium</span>
-                              Certificados
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(u);
+                                  setShowCertificatesModal(true);
+                                }}
+                                className="btn btn-sm"
+                                style={{ 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: '5px', 
+                                  borderColor: '#d97706', 
+                                  color: '#f59e0b',
+                                  background: 'transparent',
+                                  border: '1px solid #d97706',
+                                  padding: '5px 10px',
+                                  cursor: 'pointer',
+                                  borderRadius: '4px',
+                                  fontSize: '11px'
+                                }}
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>workspace_premium</span>
+                                Certificados
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(u)}
+                                className="btn btn-sm btn-outline"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '5px 10px',
+                                  fontSize: '11px',
+                                  color: '#ef4444',
+                                  borderColor: 'rgba(239,68,68,0.3)',
+                                  background: 'rgba(239,68,68,0.08)',
+                                  cursor: 'pointer',
+                                  borderRadius: '4px'
+                                }}
+                                title="Excluir usuário permanente"
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>delete</span>
+                                Excluir
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
