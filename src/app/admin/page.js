@@ -469,6 +469,21 @@ function AdminContent() {
     }
   };
 
+  const handleDeletePurchase = async (purchaseId, userName, courseTitle) => {
+    if (!window.confirm(`Deseja realmente EXCLUIR permanentemente o registro de compra do curso "${courseTitle}" para o usuário "${userName}"?`)) return;
+
+    try {
+      const purchaseRef = doc(db, 'purchases', purchaseId);
+      await deleteDoc(purchaseRef);
+
+      setDbPurchases(prev => prev.filter(p => p.id !== purchaseId));
+      alert("Registro de compra excluído com sucesso!");
+    } catch (err) {
+      console.error('[Admin] Erro ao excluir compra:', err);
+      alert("Erro ao excluir registro de compra: " + (err.message || err));
+    }
+  };
+
   const getCourseTitle = (courseId) => {
     return courses.find(c => c.id === courseId)?.title || courseId;
   };
@@ -1346,13 +1361,30 @@ function AdminContent() {
                             {p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '—'}
                           </td>
                           <td style={{ padding: '15px', textAlign: 'center' }}>
-                            <button 
-                              onClick={() => togglePurchaseStatus(p.id, p.status)} 
-                              className={`btn btn-sm ${p.status === 'approved' ? 'btn-outline' : 'btn-primary'}`}
-                              style={{ padding: '4px 10px', fontSize: '10px' }}
-                            >
-                              {p.status === 'approved' ? 'Cancelar' : 'Aprovar'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
+                              <button 
+                                onClick={() => togglePurchaseStatus(p.id, p.status)} 
+                                className={`btn btn-sm ${p.status === 'approved' ? 'btn-outline' : 'btn-primary'}`}
+                                style={{ padding: '4px 10px', fontSize: '10px' }}
+                              >
+                                {p.status === 'approved' ? 'Cancelar' : 'Aprovar'}
+                              </button>
+                              <button
+                                onClick={() => handleDeletePurchase(p.id, p.user_name || p.user_email, getCourseTitle(p.course_id))}
+                                className="btn btn-sm btn-outline"
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '10px',
+                                  color: '#ef4444',
+                                  borderColor: 'rgba(239,68,68,0.3)',
+                                  background: 'rgba(239,68,68,0.08)',
+                                  cursor: 'pointer'
+                                }}
+                                title="Excluir compra permanentemente"
+                              >
+                                Excluir
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
