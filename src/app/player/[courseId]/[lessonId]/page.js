@@ -27,6 +27,17 @@ function getVideoEmbedUrl(url) {
   return url;
 }
 
+function getLessonDownloads(lesson) {
+  if (!lesson) return [];
+  if (Array.isArray(lesson.downloads) && lesson.downloads.length > 0) {
+    return lesson.downloads.filter(d => d && (d.url || d.name));
+  }
+  if (lesson.downloadUrl) {
+    return [{ name: lesson.downloadName || 'Baixar Arquivo', url: lesson.downloadUrl }];
+  }
+  return [];
+}
+
 function PlayerContent() {
   const params = useParams();
   const { courseId, lessonId } = params;
@@ -1327,31 +1338,48 @@ function PlayerContent() {
                   <span className="material-symbols-outlined" style={{ fontSize: '36px', color: '#fbbf24' }}>download</span>
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 'var(--font-lg)', fontWeight: 'bold', marginBottom: '8px' }}>{activeLesson.title}</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)' }}>
-                    {activeLesson.downloadName || 'Arquivo disponível para download'}
+                  <h3 style={{ fontSize: 'var(--font-lg)', fontWeight: 'bold', marginBottom: '4px' }}>{activeLesson.title}</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', margin: 0 }}>
+                    {getLessonDownloads(activeLesson).length > 1 
+                      ? `${getLessonDownloads(activeLesson).length} arquivos disponíveis para download` 
+                      : (getLessonDownloads(activeLesson)[0]?.name || 'Arquivo disponível para download')}
                   </p>
                 </div>
-                {activeLesson.downloadUrl ? (
-                  <a
-                    href={activeLesson.downloadUrl}
-                    download={activeLesson.downloadName || true}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-primary"
-                    style={{
-                      justifyContent: 'center',
-                      gap: '8px',
-                      padding: '12px 30px',
-                      background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                      border: 'none',
-                      fontWeight: 'bold',
-                      textDecoration: 'none'
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>download</span>
-                    Baixar Arquivo
-                  </a>
+
+                {getLessonDownloads(activeLesson).length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '10px' }}>
+                    {getLessonDownloads(activeLesson).map((item, idx) => (
+                      <a
+                        key={idx}
+                        href={item.url}
+                        download={item.name || true}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-primary"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          padding: '12px 20px',
+                          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                          border: 'none',
+                          fontWeight: 'bold',
+                          textDecoration: 'none',
+                          borderRadius: '8px'
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>description</span>
+                          {item.name || `Arquivo #${idx + 1}`}
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', background: 'rgba(0,0,0,0.25)', padding: '4px 10px', borderRadius: '4px', flexShrink: 0 }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span>
+                          Baixar
+                        </span>
+                      </a>
+                    ))}
+                  </div>
                 ) : (
                   <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>URL de download não configurada.</p>
                 )}
@@ -1457,7 +1485,7 @@ function PlayerContent() {
           </button>
           
           <button 
-            disabled={!activeLesson.description && !activeLesson.downloadUrl && (!activeLesson.codeBlocks || activeLesson.type === 'code')}
+            disabled={!activeLesson.description && getLessonDownloads(activeLesson).length === 0 && (!activeLesson.codeBlocks || activeLesson.type === 'code')}
             onClick={() => { setShowResources(!showResources); setShowStudentNotes(false); setShowQuestions(false); }}
             className={`btn ${showResources ? 'btn-primary' : 'btn-outline'}`}
             style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: 'var(--font-sm)', padding: '8px 16px', borderRadius: '6px' }}
@@ -1511,7 +1539,7 @@ function PlayerContent() {
         )}
 
         {/* ===== RESOURCES PANEL ===== */}
-        {showResources && (activeLesson.description || activeLesson.downloadUrl || (activeLesson.codeBlocks && activeLesson.type !== 'code')) && (
+        {showResources && (activeLesson.description || getLessonDownloads(activeLesson).length > 0 || (activeLesson.codeBlocks && activeLesson.type !== 'code')) && (
           <div style={{ padding: 'var(--space-4)', background: 'rgba(15,23,42,0.3)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
             {/* Description text */}
             {activeLesson.description && (
@@ -1521,21 +1549,35 @@ function PlayerContent() {
               </div>
             )}
 
-            {/* Download link if video lesson also has download */}
-            {activeLesson.downloadUrl && activeLesson.type !== 'download' && (
+            {/* Downloads list for resources */}
+            {getLessonDownloads(activeLesson).length > 0 && activeLesson.type !== 'download' && (
               <div>
-                <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', marginBottom: '8px', color: '#fbbf24' }}>📥 Arquivo para Download</h4>
-                <a
-                  href={activeLesson.downloadUrl}
-                  download={activeLesson.downloadName || true}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-sm btn-outline"
-                  style={{ display: 'inline-flex', gap: '6px', textDecoration: 'none', borderColor: 'rgba(245,158,11,0.3)', color: '#fbbf24' }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span>
-                  {activeLesson.downloadName || 'Baixar arquivo'}
-                </a>
+                <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 'bold', marginBottom: '10px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>download</span>
+                  Arquivos para Download
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {getLessonDownloads(activeLesson).map((item, idx) => (
+                    <a
+                      key={idx}
+                      href={item.url}
+                      download={item.name || true}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-sm btn-outline"
+                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', textDecoration: 'none', borderColor: 'rgba(245,158,11,0.3)', color: '#fbbf24', padding: '8px 14px' }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>description</span>
+                        {item.name || `Arquivo #${idx + 1}`}
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>download</span>
+                        Baixar
+                      </span>
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
 
